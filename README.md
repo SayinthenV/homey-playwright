@@ -9,10 +9,54 @@ git clone https://github.com/SayinthenV/homey-playwright.git
 cd homey-playwright
 npm install
 npx playwright install chromium
-cp .env.test.example .env.test   # Fill in BASE_URL and test user credentials in .env.test
-npx playwright test
-npx playwright test --ui
+cp .env.test.example .env.test   # Fill in credentials in .env.test
+npx playwright test              # Runs against QA by default
 ```
+
+## Environments
+
+Three live environments are supported out of the box. Select one using the `ENV` variable:
+
+| ENV value | URL | When to use |
+|---|---|---|
+| `qa` (default) | `https://app.qa.homey.co.uk` | Daily regression, PRs |
+| `preprod` | `https://app.preprod.homey.co.uk` | Pre-release sign-off |
+| `reviewapp` | `https://homey-tv-86ev94a8a-ccl--6ewkll.herokuapp.com` | Feature branch review |
+| `local` | `http://localhost:3000` | Local development |
+
+The sign-in page is `/auth` on all environments.
+
+### Running locally against a specific environment
+
+```bash
+# QA (default)
+ENV=qa npx playwright test
+
+# PrePROD — full suite
+ENV=preprod npx playwright test
+
+# ReviewApp — single spec
+ENV=reviewapp npx playwright test tests/enquiries/
+
+# One-off URL override (for ephemeral Heroku review apps)
+BASE_URL=https://homey-my-feature-xyz.herokuapp.com npx playwright test
+
+# Single role project on QA
+ENV=qa npx playwright test --project=chromium-agent
+
+# Performance baselines against PrePROD
+ENV=preprod npx playwright test --project=performance
+```
+
+### Running in CI
+
+On every **push / PR** the workflow targets QA automatically.
+
+To run against a different environment, go to **Actions → Playwright Tests → Run workflow** and choose from the dropdown:
+
+- `qa` — QA environment
+- `preprod` — PrePROD environment
+- `reviewapp` — ReviewApp (Heroku)
 
 ## Project Structure
 
@@ -87,7 +131,9 @@ homey-playwright/
 
 ## Authentication Strategy
 
-Tests never log in through the UI. `fixtures/auth.setup.ts` runs once per project and saves browser storage state for each role: agent, solicitor, buyer, admin.
+Tests never log in through the UI during test runs. `fixtures/auth.setup.ts` runs once before all test projects and saves browser storage state for each role. Individual tests reuse these saved states.
+
+The login page is `/auth` on all environments (QA, PrePROD, ReviewApp, and local).
 
 ## Test Data Strategy
 
@@ -114,8 +160,8 @@ Supports two providers — Percy and Applitools — both are no-ops without thei
 # Install
 npm install --save-dev @percy/cli @percy/playwright
 
-# Run locally (requires PERCY_TOKEN)
-PERCY_TOKEN=your_token npm run test:visual:percy
+# Run locally against QA (requires PERCY_TOKEN)
+ENV=qa PERCY_TOKEN=your_token npm run test:visual:percy
 
 # In CI — runs automatically on PRs when PERCY_TOKEN secret is set
 ```
@@ -126,8 +172,8 @@ PERCY_TOKEN=your_token npm run test:visual:percy
 # Install
 npm install --save-dev @applitools/eyes-playwright
 
-# Run locally (requires APPLITOOLS_API_KEY)
-APPLITOOLS_API_KEY=your_key npm run test:visual
+# Run locally against QA (requires APPLITOOLS_API_KEY)
+ENV=qa APPLITOOLS_API_KEY=your_key npm run test:visual
 ```
 
 ### Using in test files
@@ -148,15 +194,9 @@ test('enquiry list visual', async ({ page }) => {
 });
 ```
 
-### Visual test stabilisation
-
-`VisualBasePage` and both helpers wait for Turbo Drive to settle, mask timestamps/avatars, and scroll to trigger lazy-loaded images before every snapshot. No flaky diffs from dynamic content.
-
 ## API Contract Testing (Phase 6)
 
-Consumer-driven contract testing with [Pact](https://pact.io). The consumer (this repo) defines expectations; the Homey API (provider) verifies them via a Pact Broker.
-
-Contract specs live in `contracts/` and are run with Jest (not Playwright):
+Consumer-driven contract testing with [Pact](https://pact.io). Contract specs live in `contracts/` and are run with Jest (not Playwright):
 
 ```bash
 # Run contract specs
@@ -171,12 +211,14 @@ npm run pact:publish
 
 ## Performance Baseline Assertions (Phase 7)
 
-Playwright-native Core Web Vitals (LCP, FCP, TTFB, CLS, TBT) and load timing measured against Google "Good" thresholds. No external SaaS required.
-
-### Run locally
+Playwright-native Core Web Vitals (LCP, FCP, TTFB, CLS, TBT) and load timing measured against Google "Good" thresholds.
 
 ```bash
-npm run test:performance
+# Run against QA (default)
+ENV=qa npm run test:performance
+
+# Run against PrePROD
+ENV=preprod npm run test:performance
 ```
 
 ### Default thresholds
@@ -191,29 +233,11 @@ npm run test:performance
 | DCL | ≤ 3000 ms | DOM Content Loaded |
 | Load | ≤ 5000 ms | Full page load |
 
-### Custom thresholds per page
-
-```typescript
-import { PerformanceHelper } from '../../helpers/PerformanceHelper';
-
-test('conveyance list performance', async ({ page }) => {
-  const perf = new PerformanceHelper(page);
-  const metrics = await perf.measureNavigation('/conveyances');
-  perf.logMetrics(metrics, 'Conveyance List');
-  // Allow extra budget for data-heavy pages
-  perf.assertThresholds(metrics, { lcp: 3500, ttfb: 1200 }, 'Conveyance List');
-});
-```
-
-### CI workflow
-
-The `performance-tests` job runs in parallel with other jobs. It is **non-blocking by default** — failures are reported but don't fail the build. Set `PERFORMANCE_REQUIRED=true` as a repository variable to enforce thresholds and block merges.
-
 ## Available npm Scripts
 
 | Script | Description |
 |---|---|
-| `npm test` | Run all tests |
+| `npm test` | Run all tests (ENV=qa by default) |
 | `npm run test:visual` | Visual regression (Applitools) |
 | `npm run test:visual:percy` | Visual regression with Percy wrapper |
 | `npm run test:contracts` | API contract tests (Pact) |
@@ -249,20 +273,25 @@ The `performance-tests` job runs in parallel with other jobs. It is **non-blocki
 
 ## Environment Variables
 
-```bash
-# Target environment
-BASE_URL=https://staging.homey.app
+Copy `.env.test.example` to `.env.test` and fill in the values:
 
-# Test user credentials (read by AuthHelper.ts and ApiHelper.ts)
-TEST_AGENT_EMAIL=agent@test.homey.app
+```bash
+# Which environment to target (qa / preprod / reviewapp / local)
+ENV=qa
+
+# Optional: override the URL entirely (e.g. for a custom review app)
+# BASE_URL=https://my-branch-abc123.herokuapp.com
+
+# Credentials — same variable names across all environments
+TEST_AGENT_EMAIL=agent@test.homey.co.uk
 TEST_AGENT_PASSWORD=...
-TEST_SOLICITOR_EMAIL=solicitor@test.homey.app
+TEST_SOLICITOR_EMAIL=solicitor@test.homey.co.uk
 TEST_SOLICITOR_PASSWORD=...
-TEST_BUYER_EMAIL=buyer@test.homey.app
+TEST_BUYER_EMAIL=buyer@test.homey.co.uk
 TEST_BUYER_PASSWORD=...
-TEST_SELLER_EMAIL=seller@test.homey.app
+TEST_SELLER_EMAIL=seller@test.homey.co.uk
 TEST_SELLER_PASSWORD=...
-TEST_ADMIN_EMAIL=admin@test.homey.app
+TEST_ADMIN_EMAIL=admin@test.homey.co.uk
 TEST_ADMIN_PASSWORD=...
 
 # AI features
@@ -276,15 +305,12 @@ APPLITOOLS_API_KEY=...
 PACT_BROKER_BASE_URL=https://your-broker.pactflow.io
 PACT_BROKER_TOKEN=...
 
-# Cleanup
-CLEANUP_TEST_DATA=false
-
 # Phase 7 — optional repo variables (not secrets)
-# PERFORMANCE_ENABLED=true  (default true; set false to skip perf job)
+# PERFORMANCE_ENABLED=true  (default true; set false to skip perf job in CI)
 # PERFORMANCE_REQUIRED=true (default false; set true to block builds on failures)
 ```
 
-> **CI secrets**: The GitHub Actions workflow maps the GitHub secrets `AGENT_EMAIL`, `SOLICITOR_EMAIL`, etc. to the `TEST_AGENT_EMAIL`, `TEST_SOLICITOR_EMAIL` env vars that the helpers read. In your local `.env.test` file, use the `TEST_` prefix directly.
+> **CI secrets**: The GitHub Actions workflow maps `AGENT_EMAIL` → `TEST_AGENT_EMAIL` etc. In your local `.env.test` file use the `TEST_` prefix directly.
 
 ## Roadmap
 
