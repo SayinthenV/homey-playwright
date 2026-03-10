@@ -58,7 +58,6 @@ export default defineConfig({
     video: 'retain-on-failure',
     actionTimeout:   15_000,
     navigationTimeout: 30_000,
-    // Pass JWT token via storage state when pre-authenticated
     storageState: process.env.STORAGE_STATE || undefined,
   },
 
@@ -113,24 +112,32 @@ export default defineConfig({
       testMatch: ['**/tests/admin/**', '**/tests/multiTenant/**'],
     },
 
+    // ── Accessibility tests (Phase 8) ─────────────────────────────────────
+    // Runs as agent so pages render with real data.
+    // Uses axe-core via @axe-core/playwright to enforce WCAG 2.1 AA.
+    {
+      name: 'accessibility',
+      use: {
+        ...devices['Desktop Chrome'],
+        storageState: 'playwright/.auth/agent.json',
+      },
+      dependencies: ['setup'],
+      testMatch: ['**/tests/accessibility/**'],
+    },
+
     // ── Performance baseline tests (Phase 7) ─────────────────────────────
-    // Runs as agent (authenticated) so pages render with real data.
-    // Single worker — sequential runs avoid noisy-neighbour CPU contention.
     {
       name: 'performance',
       use: {
         ...devices['Desktop Chrome'],
         storageState: 'playwright/.auth/agent.json',
-        // Disable service workers & caching so each run is a cold load
         serviceWorkers: 'block',
-        // Emulate a mid-range laptop (no GPU raster throttling)
         launchOptions: {
           args: ['--disable-gpu', '--no-sandbox', '--disable-dev-shm-usage'],
         },
       },
       dependencies: ['setup'],
       testMatch: ['**/tests/performance/**'],
-      // Single worker prevents CPU contention between concurrent page loads
       fullyParallel: false,
     },
   ],
