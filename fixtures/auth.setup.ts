@@ -10,47 +10,56 @@ import { AuthHelper, TEST_USERS } from '../helpers/AuthHelper';
  * Storage state files: playwright/.auth/{role}.json
  * These are loaded by chromium-agent, chromium-solicitor, etc. projects.
  *
+ * The login page is /auth across all Homey environments:
+ *   QA        → https://app.qa.homey.co.uk/auth
+ *   PrePROD   → https://app.preprod.homey.co.uk/auth
+ *   ReviewApp → https://homey-tv-86ev94a8a-ccl--6ewkll.herokuapp.com/auth
+ *   Local     → http://localhost:3000/auth
+ *
  * Run automatically via: playwright.config.ts → projects[0].name = 'setup'
  */
 
 const authHelper = new AuthHelper();
 
-// ── Agent ────────────────────────────────────────────────────────────────────
+// ── Agent ──────────────────────────────────────────────────────────────────────
 setup('authenticate as agent', async ({ page }) => {
-    const user = TEST_USERS.agent;
-    await authHelper.loginViaUI(page, user);
+  const user = TEST_USERS.agent;
+  await authHelper.loginViaUI(page, user);
 
-        // Verify we landed on a valid authenticated page
-        await expect(page).not.toHaveURL(/sign_in/);
+  // Verify we landed on a valid authenticated page (not still on /auth)
+  await expect(page).not.toHaveURL(//auth($|\/|\?)/);
 
-        // Save storage state (cookies + session)
-        await authHelper.saveStorageState(page.context(), 'agent');
-    console.log('Agent auth state saved');
+  // Save storage state (cookies + session)
+  await authHelper.saveStorageState(page.context(), 'agent');
+  console.log('[setup] Agent auth state saved');
 });
 
-// ── Solicitor ────────────────────────────────────────────────────────────────
+// ── Solicitor ──────────────────────────────────────────────────────────────────
 setup('authenticate as solicitor', async ({ page }) => {
-    const user = TEST_USERS.solicitor;
-    await authHelper.loginViaUI(page, user);
-    await expect(page).not.toHaveURL(/sign_in/);
-    await authHelper.saveStorageState(page.context(), 'solicitor');
-    console.log('Solicitor auth state saved');
+  const user = TEST_USERS.solicitor;
+  await authHelper.loginViaUI(page, user);
+
+  await expect(page).not.toHaveURL(//auth($|\/|\?)/);
+  await authHelper.saveStorageState(page.context(), 'solicitor');
+  console.log('[setup] Solicitor auth state saved');
 });
 
-// ── Buyer ────────────────────────────────────────────────────────────────────
+// ── Buyer ──────────────────────────────────────────────────────────────────────
 setup('authenticate as buyer', async ({ page }) => {
-    const user = TEST_USERS.buyer;
-    await authHelper.loginViaUI(page, user);
-    await expect(page).not.toHaveURL(/sign_in/);
-    await authHelper.saveStorageState(page.context(), 'buyer');
-    console.log('Buyer auth state saved');
+  const user = TEST_USERS.buyer;
+  await authHelper.loginViaUI(page, user);
+
+  await expect(page).not.toHaveURL(//auth($|\/|\?)/);
+  await authHelper.saveStorageState(page.context(), 'buyer');
+  console.log('[setup] Buyer auth state saved');
 });
 
-// ── Admin ────────────────────────────────────────────────────────────────────
+// ── Admin ──────────────────────────────────────────────────────────────────────
 setup('authenticate as admin', async ({ page }) => {
-    const user = TEST_USERS.admin;
-    await authHelper.loginViaUI(page, user);
-    await expect(page).not.toHaveURL(/sign_in/);
-    await authHelper.saveStorageState(page.context(), 'admin');
-    console.log('Admin auth state saved');
+  const user = TEST_USERS.admin;
+  await authHelper.loginViaUI(page, user);
+
+  await expect(page).not.toHaveURL(//auth($|\/|\?)/);
+  await authHelper.saveStorageState(page.context(), 'admin');
+  console.log('[setup] Admin auth state saved');
 });
