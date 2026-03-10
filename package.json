@@ -19,6 +19,7 @@
     "test:visual": "playwright test tests/visual/",
     "test:visual:percy": "percy exec -- playwright test tests/visual/",
     "test:contracts": "jest --config contracts/pact.config.ts",
+    "test:performance": "playwright test --project=performance",
     "pact:publish": "ts-node -e \"const {Publisher} = require('@pact-foundation/pact'); new Publisher({pactFilesOrDirs:['./pacts'],pactBroker:process.env.PACT_BROKER_BASE_URL,pactBrokerToken:process.env.PACT_BROKER_TOKEN,consumerVersion:process.env.PACT_CONSUMER_VERSION||require('./package.json').version,tags:(process.env.PACT_CONSUMER_TAGS||'main').split(',')}).publishPacts().then(()=>console.log('Pacts published')).catch(e=>{console.error(e);process.exit(1)})\"",
     "codegen": "playwright codegen",
     "generate-pom": "ts-node ai/PageObjectGenerator.ts",
