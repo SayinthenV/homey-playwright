@@ -8,14 +8,17 @@ on:
 
 env:
   BASE_URL: ${{ secrets.BASE_URL }}
-  AGENT_EMAIL: ${{ secrets.AGENT_EMAIL }}
-  AGENT_PASSWORD: ${{ secrets.AGENT_PASSWORD }}
-  SOLICITOR_EMAIL: ${{ secrets.SOLICITOR_EMAIL }}
-  SOLICITOR_PASSWORD: ${{ secrets.SOLICITOR_PASSWORD }}
-  BUYER_EMAIL: ${{ secrets.BUYER_EMAIL }}
-  BUYER_PASSWORD: ${{ secrets.BUYER_PASSWORD }}
-  ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
-  ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
+  # AuthHelper.ts reads TEST_AGENT_EMAIL / TEST_AGENT_PASSWORD etc.
+  TEST_AGENT_EMAIL: ${{ secrets.AGENT_EMAIL }}
+  TEST_AGENT_PASSWORD: ${{ secrets.AGENT_PASSWORD }}
+  TEST_SOLICITOR_EMAIL: ${{ secrets.SOLICITOR_EMAIL }}
+  TEST_SOLICITOR_PASSWORD: ${{ secrets.SOLICITOR_PASSWORD }}
+  TEST_BUYER_EMAIL: ${{ secrets.BUYER_EMAIL }}
+  TEST_BUYER_PASSWORD: ${{ secrets.BUYER_PASSWORD }}
+  TEST_SELLER_EMAIL: ${{ secrets.SELLER_EMAIL }}
+  TEST_SELLER_PASSWORD: ${{ secrets.SELLER_PASSWORD }}
+  TEST_ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
+  TEST_ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
   OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
 jobs:
@@ -27,15 +30,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
-
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-
       - name: Cache auth state
         id: cache-auth
         uses: actions/cache@v4
@@ -44,11 +44,9 @@ jobs:
           key: auth-${{ runner.os }}-${{ hashFiles('fixtures/auth.setup.ts') }}-${{ github.sha }}
           restore-keys: |
             auth-${{ runner.os }}-${{ hashFiles('fixtures/auth.setup.ts') }}-
-
       - name: Run auth setup
         if: steps.cache-auth.outputs.cache-hit != 'true'
         run: npx playwright test fixtures/auth.setup.ts --project=setup
-
       - uses: actions/upload-artifact@v4
         with:
           name: auth-state
@@ -64,23 +62,18 @@ jobs:
     needs: auth-setup
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
-
       - run: npm ci
-
       - uses: actions/download-artifact@v4
         with:
           name: auth-state
           path: .auth/
-
       - name: Seed test data
         run: npx playwright test fixtures/test-data.setup.ts --project=setup
         continue-on-error: true
-
       - uses: actions/upload-artifact@v4
         with:
           name: test-data-manifest
@@ -96,38 +89,31 @@ jobs:
     needs: test-data-setup
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
-
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-
       - uses: actions/download-artifact@v4
         with:
           name: auth-state
           path: .auth/
-
       - uses: actions/download-artifact@v4
         with:
           name: test-data-manifest
           path: .test-data/
         continue-on-error: true
-
       - name: Run functional tests
-        run: npx playwright test --ignore=tests/visual/ --ignore=tests/contracts/ --ignore=tests/performance/
+        run: npx playwright test --ignore=tests/visual/ --ignore=tests/performance/
         env:
           CI: true
-
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: playwright-report
           path: playwright-report/
           retention-days: 7
-
       - name: AI failure analysis
         if: failure()
         run: npm run analyse-failures
@@ -146,32 +132,26 @@ jobs:
     if: ${{ vars.PERCY_ENABLED == 'true' || github.event_name == 'pull_request' }}
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
-
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-
       - uses: actions/download-artifact@v4
         with:
           name: auth-state
           path: .auth/
-
       - uses: actions/download-artifact@v4
         with:
           name: test-data-manifest
           path: .test-data/
         continue-on-error: true
-
       - name: Run visual tests with Percy
         run: npx percy exec -- npx playwright test tests/visual/
         env:
           PERCY_TOKEN: ${{ secrets.PERCY_TOKEN }}
           CI: true
-
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -189,26 +169,21 @@ jobs:
     if: ${{ vars.APPLITOOLS_ENABLED == 'true' }}
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
-
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-
       - uses: actions/download-artifact@v4
         with:
           name: auth-state
           path: .auth/
-
       - uses: actions/download-artifact@v4
         with:
           name: test-data-manifest
           path: .test-data/
         continue-on-error: true
-
       - name: Run visual tests with Applitools
         run: npx playwright test tests/visual/
         env:
@@ -224,35 +199,31 @@ jobs:
     needs: test-data-setup
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
-
       - run: npm ci
-
       - uses: actions/download-artifact@v4
         with:
           name: auth-state
           path: .auth/
-
       - name: Run Pact consumer contract tests
         run: npm run test:contracts
         env:
           CI: true
           PACT_BROKER_BASE_URL: ${{ secrets.PACT_BROKER_BASE_URL }}
           PACT_BROKER_TOKEN: ${{ secrets.PACT_BROKER_TOKEN }}
-
+      # Publish pacts to Pact Broker only when the secret is configured.
+      # Uses secrets context (not vars) so the non-empty check is reliable.
       - name: Publish pacts to Pact Broker
-        if: success() && vars.PACT_BROKER_BASE_URL != ''
+        if: ${{ success() && secrets.PACT_BROKER_BASE_URL != '' }}
         run: npm run pact:publish
         env:
           PACT_BROKER_BASE_URL: ${{ secrets.PACT_BROKER_BASE_URL }}
           PACT_BROKER_TOKEN: ${{ secrets.PACT_BROKER_TOKEN }}
           PACT_CONSUMER_VERSION: ${{ github.sha }}
           PACT_CONSUMER_TAGS: ${{ github.ref_name }}
-
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -272,20 +243,16 @@ jobs:
     if: ${{ vars.PERFORMANCE_ENABLED != 'false' }}
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
-
       - run: npm ci
       - run: npx playwright install --with-deps chromium
-
       - uses: actions/download-artifact@v4
         with:
           name: auth-state
           path: .auth/
-
       - name: Run performance baseline tests
         run: npx playwright test --project=performance
         env:
@@ -293,7 +260,6 @@ jobs:
         # Allow failures to be non-blocking — report but don't fail the build by default.
         # Set PERFORMANCE_REQUIRED=true in repo variables to make it blocking.
         continue-on-error: ${{ vars.PERFORMANCE_REQUIRED != 'true' }}
-
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -311,25 +277,20 @@ jobs:
     if: always() && vars.CLEANUP_TEST_DATA == 'true'
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: npm
-
       - run: npm ci
-
       - uses: actions/download-artifact@v4
         with:
           name: auth-state
           path: .auth/
-
       - uses: actions/download-artifact@v4
         with:
           name: test-data-manifest
           path: .test-data/
         continue-on-error: true
-
       - name: Teardown test data
         run: npx playwright test fixtures/test-data.setup.ts --project=setup --grep="cleanup"
         env:
