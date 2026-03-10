@@ -1,60 +1,49 @@
-─────────────────────────────────────────────────────────────import path from 'path';
+import type { Config } from 'jest';
 
-// Output directories
-export const PACT_OUTPUT_DIR = path.resolve(__dirname, '../pacts');
-export const PACT_LOG_DIR = path.resolve(__dirname, '../logs');
+/**
+ * Jest configuration for Pact consumer contract tests.
+ *
+ * Run:  npm run test:contracts
+ * This config is passed directly to Jest via --config contracts/pact.config.ts
+ *
+ * Uses ts-jest so TypeScript spec files are compiled on the fly without a
+ * separate build step.  Pact output goes to ./pacts/ by default (configured
+ * per-spec via PactHelper.pactConfig()).
+ */
+const config: Config = {
+  // Only pick up Pact spec files inside contracts/
+  testMatch: ['<rootDir>/**/*.pact.spec.ts'],
 
-// Consumer / provider metadata
-export const CONSUMER_NAME = 'HomeyUI';
+  // TypeScript support via ts-jest
+  preset: 'ts-jest',
+  testEnvironment: 'node',
 
-export const PROVIDERS = {
-    enquiries: 'HomeyEnquiriesAPI',
-    conveyances: 'HomeyConveyancesAPI',
-    payments: 'HomeyPaymentsAPI',
-    kyc: 'HomeyKycAPI',
-} as const;
+  // Longer timeout — Pact mock server startup + HTTP round-trips can be slow
+  testTimeout: 30_000,
 
-export type ProviderName = (typeof PROVIDERS)[keyof typeof PROVIDERS];
-  
-  // Broker configuration
-  export const pactBrokerConfig = {
-    brokerUrl: process.env.PACT_BROKER_URL ?? '',
-    brokerToken: process.env.PACT_BROKER_TOKEN ?? '',
-    consumerVersion:
-          process.env.PACT_CONSUMER_VERSION ?? process.env.npm_package_version ?? '0.0.1',
-    publishVerificationResults: process.env.PACT_PUBLISH_RESULTS === 'true',
-    tags: buildVersionTags(),
+  // ts-jest compiler options (inherit from repo tsconfig)
+  transform: {
+    '^.+\.tsx?$': [
+      'ts-jest',
+      {
+        tsconfig: '<rootDir>/../tsconfig.json',
+        diagnostics: false,
+      },
+    ],
+  },
+
+  // Friendly output
+  verbose: true,
+
+  // Module path aliases matching tsconfig paths
+  moduleNameMapper: {
+    '^@helpers/(.*)$': '<rootDir>/../helpers/$1',
+    '^@pages/(.*)$': '<rootDir>/../pages/$1',
+    '^@fixtures/(.*)$': '<rootDir>/../fixtures/$1',
+  },
+
+  // Collect coverage only when explicitly requested (npm run test:contracts -- --coverage)
+  collectCoverage: false,
 };
 
-function buildVersionTags(): string[] {
-    const branch = process.env.GITHUB_REF_NAME ?? process.env.GIT_BRANCH ?? 'local';
-    const tags = [branch];
-    if (branch === 'main') tags.push('latest');
-    return tags;
-}
-
-// Jest / test runner settings
-export const PACT_DEFAULT_TIMEOUT_MS = 30_000;
-
-export const PACT_LOG_LEVEL = (process.env.PACT_LOG_LEVEL ?? 'ERROR') as
-    | 'TRACE'
-    | 'DEBUG'
-    | 'INFO'
-    | 'WARN'
-    | 'ERROR'
-    | 'OFF';
-
-// Provider verification shared config
-export function makeProviderVerifierConfig(providerName: ProviderName) {
-    return {
-          provider: providerName,
-          providerBaseUrl: process.env.HOMEY_APP_URL ?? 'http://localhost:3000',
-          pactBrokerUrl: pactBrokerConfig.brokerUrl,
-          pactBrokerToken: pactBrokerConfig.brokerToken,
-          publishVerificationResults: pactBrokerConfig.publishVerificationResults,
-          providerVersion: process.env.HOMEY_PROVIDER_VERSION ?? '0.0.1',
-          consumerVersionSelectors: [{ mainBranch: true }, { deployedOrReleased: true }],
-          logLevel: PACT_LOG_LEVEL,
-          stateHandlers: {},
-    };
-}────────────────–––––─────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────—────────────────────────────────────────—
+export default config;
