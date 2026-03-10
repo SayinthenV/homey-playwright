@@ -1,27 +1,34 @@
 {
-    "name": "homey-playwright",
-    "version": "1.0.0",
-    "description": "AI-Assisted Playwright POM Framework for the Homey conveyancing platform",
-    "scripts": {
-          "test": "playwright test",
-          "test:headed": "playwright test --headed",
-          "test:debug": "playwright test --debug",
-          "test:ui": "playwright test --ui",
-          "test:report": "playwright show-report",
-          "test:auth": "playwright test tests/auth/",
-          "test:enquiries": "playwright test tests/enquiries/",
-          "test:conveyances": "playwright test tests/conveyances/",
-          "test:actions": "playwright test tests/actionCenter/",
-          "test:kyc": "playwright test tests/kyc/",
-          "test:payments": "playwright test tests/payments/",
-          "codegen": "playwright codegen"
-    },
-    "dependencies": {
-          "dotenv": "^16.4.5"
-    },
-    "devDependencies": {
-          "@playwright/test": "^1.44.0",
-          "@types/node": "^20.14.0",
-          "typescript": "^5.4.5"
-    }
+        "name": "homey-playwright",
+        "version": "1.0.0",
+        "description": "AI-Assisted Playwright POM Framework for the Homey conveyancing platform",
+        "scripts": {
+                    "test": "playwright test",
+                    "test:headed": "playwright test --headed",
+                    "test:debug": "playwright test --debug",
+                    "test:ui": "playwright test --ui",
+                    "test:report": "playwright show-report",
+                    "test:auth": "playwright test tests/auth/",
+                    "test:enquiries": "playwright test tests/enquiries/",
+                    "test:conveyances": "playwright test tests/conveyances/",
+                    "test:actions": "playwright test tests/actionCenter/",
+                    "test:kyc": "playwright test tests/kyc/",
+                    "test:payments": "playwright test tests/payments/",
+                    "test:quotes": "playwright test tests/quotes/",
+                    "test:documents": "playwright test tests/documents/",
+                    "codegen": "playwright codegen",
+                    "generate-pom": "ts-node ai/PageObjectGenerator.ts",
+                    "nl2test": "ts-node helpers/NLTestConverter.ts",
+                    "analyse-failures": "ts-node -e \"require('./helpers/CIFailureAnalyser')\""
+        },
+        "dependencies": {
+                    "dotenv": "^16.4.5",
+                    "openai": "^4.0.0"
+        },
+        "devDependencies": {
+                    "@playwright/test": "^1.44.0",
+                    "@types/node": "^20.14.0",
+                    "ts-node": "^10.9.2",
+                    "typescript": "^5.4.5"
+        }
 }
