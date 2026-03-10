@@ -1,7 +1,6 @@
 # homey-playwright
 
-AI-Assisted Playwright POM Framework for the Homey conveyancing platform.
-Built with TypeScript, Playwright, and Hotwire/Turbo-aware helpers.
+AI-Assisted Playwright POM Framework for the Homey conveyancing platform. Built with TypeScript, Playwright, and Hotwire/Turbo-aware helpers.
 
 ## Quick Start
 
@@ -10,8 +9,7 @@ git clone https://github.com/SayinthenV/homey-playwright.git
 cd homey-playwright
 npm install
 npx playwright install chromium
-cp .env.test.example .env.test
-# Fill in BASE_URL and test user credentials in .env.test
+cp .env.test.example .env.test   # Fill in BASE_URL and test user credentials in .env.test
 npx playwright test
 npx playwright test --ui
 ```
@@ -21,27 +19,27 @@ npx playwright test --ui
 ```
 homey-playwright/
 ├── pages/
-│   ├── base/BasePage.ts                # Abstract base: nav, Turbo helpers, flash
-│   ├── auth/LoginPage.ts               # Devise sign-in
+│   ├── base/BasePage.ts               # Abstract base: nav, Turbo helpers, flash
+│   ├── auth/LoginPage.ts              # Devise sign-in
 │   ├── enquiries/
-│   │   ├── EnquiryListPage.ts          # List with search/filter
-│   │   ├── EnquiryDetailPage.ts        # Detail + convert to conveyance
-│   │   └── NewEnquiryPage.ts           # 4-step wizard (Wicked gem)
+│   │   ├── EnquiryListPage.ts         # List with search/filter
+│   │   ├── EnquiryDetailPage.ts       # Detail + convert to conveyance
+│   │   └── NewEnquiryPage.ts          # 4-step wizard (Wicked gem)
 │   ├── conveyances/
-│   │   ├── ConveyanceListPage.ts       # Cases list
-│   │   └── ConveyanceDetailPage.ts     # Detail + tabs (documents, payments, KYC)
+│   │   ├── ConveyanceListPage.ts      # Cases list
+│   │   └── ConveyanceDetailPage.ts    # Detail + tabs (documents, payments, KYC)
 │   ├── actionCenter/
-│   │   └── ActionCenterPage.ts         # Live workflow (Turbo Streams)
+│   │   └── ActionCenterPage.ts        # Live workflow (Turbo Streams)
 │   ├── quotes/
-│   │   └── QuoteGeneratorPage.ts       # Pricing engine + PDF preview
+│   │   └── QuoteGeneratorPage.ts      # Pricing engine + PDF preview
 │   ├── payments/
-│   │   └── StripePaymentPage.ts        # Stripe Elements iframe
+│   │   └── StripePaymentPage.ts       # Stripe Elements iframe
 │   ├── kyc/
-│   │   └── KYCDashboardPage.ts         # Thirdfort KYC status
+│   │   └── KYCDashboardPage.ts        # Thirdfort KYC status
 │   ├── documents/
-│   │   └── DocumentUploadPage.ts       # Active Storage drag-drop + validation
+│   │   └── DocumentUploadPage.ts      # Active Storage drag-drop + validation
 │   └── visual/
-│       └── VisualBasePage.ts           # Turbo-aware snapshot base (Phase 5)
+│       └── VisualBasePage.ts          # Turbo-aware snapshot base (Phase 5)
 ├── tests/
 │   ├── auth/login.spec.ts
 │   ├── enquiries/create-enquiry.spec.ts
@@ -52,36 +50,35 @@ homey-playwright/
 │   ├── quotes/quote-generator.spec.ts
 │   ├── payments/stripe-payment.spec.ts
 │   ├── visual/
-│   │   ├── enquiry-visual.spec.ts      # Enquiry list/detail/wizard snapshots
-│   │   ├── conveyance-visual.spec.ts   # Conveyance + Action Centre snapshots
-│   │   └── payment-visual.spec.ts      # Stripe, Quote, KYC snapshots
-│   ├── contracts/
-│   │   ├── enquiries.pact.spec.ts      # Enquiries API consumer contracts (Phase 6)
-│   │   ├── conveyances.pact.spec.ts    # Conveyances API consumer contracts (Phase 6)
-│   │   └── payments.pact.spec.ts       # Payments API consumer contracts (Phase 6)
+│   │   ├── enquiry-visual.spec.ts     # Enquiry list/detail/wizard snapshots
+│   │   ├── conveyance-visual.spec.ts  # Conveyance + Action Centre snapshots
+│   │   └── payment-visual.spec.ts     # Stripe, Quote, KYC snapshots
 │   └── performance/
-│       └── performance-baseline.spec.ts # CWV + load timing baselines (Phase 7)
+│       └── performance-baseline.spec.ts  # CWV + load timing baselines (Phase 7)
+├── contracts/                         # Pact consumer contract tests (Phase 6)
+│   ├── enquiries.pact.spec.ts         # Enquiries API consumer contracts
+│   ├── conveyances.pact.spec.ts       # Conveyances API consumer contracts
+│   ├── payments.pact.spec.ts          # Payments + KYC API consumer contracts
+│   └── pact.config.ts                 # Jest configuration for contract tests
 ├── helpers/
-│   ├── AuthHelper.ts                   # Pre-save browser storage state
-│   ├── ThirdfortMocker.ts              # Webhook simulation
-│   ├── SelectorHealer.ts               # AI self-healing selectors (Phase 3)
-│   ├── TestDataFactory.ts              # UK property test data (Phase 3)
-│   ├── NLTestConverter.ts              # NL to Playwright test (Phase 3)
-│   ├── CIFailureAnalyser.ts            # AI failure analysis (Phase 3)
-│   ├── ApiHelper.ts                    # REST API helper for fast setup/teardown
-│   ├── PercyHelper.ts                  # Percy snapshot wrapper (Phase 5)
-│   ├── AppliHelper.ts                  # Applitools Eyes wrapper (Phase 5)
-│   ├── PactHelper.ts                   # Pact consumer config + response shapes (Phase 6)
-│   └── PerformanceHelper.ts            # CWV measurement + threshold assertions (Phase 7)
+│   ├── AuthHelper.ts                  # Pre-save browser storage state
+│   ├── ThirdfortMocker.ts             # Webhook simulation
+│   ├── SelectorHealer.ts              # AI self-healing selectors (Phase 3)
+│   ├── TestDataFactory.ts             # UK property test data (Phase 3)
+│   ├── NLTestConverter.ts             # NL to Playwright test (Phase 3)
+│   ├── CIFailureAnalyser.ts           # AI failure analysis (Phase 3)
+│   ├── ApiHelper.ts                   # REST API helper for fast setup/teardown
+│   ├── PercyHelper.ts                 # Percy snapshot wrapper (Phase 5)
+│   ├── AppliHelper.ts                 # Applitools Eyes wrapper (Phase 5)
+│   ├── PactHelper.ts                  # Pact consumer config + response shapes (Phase 6)
+│   └── PerformanceHelper.ts           # CWV measurement + threshold assertions (Phase 7)
 ├── ai/
-│   └── PageObjectGenerator.ts          # DOM crawler → POM generator (Phase 3)
-├── contracts/
-│   └── pact.config.ts                  # Jest + Pact configuration (Phase 6)
+│   └── PageObjectGenerator.ts         # DOM crawler → POM generator (Phase 3)
 ├── fixtures/
-│   ├── auth.setup.ts                   # Global auth state fixture
-│   └── test-data.setup.ts              # Global test data seeding fixture
+│   ├── auth.setup.ts                  # Global auth state fixture
+│   └── test-data.setup.ts             # Global test data seeding fixture
 ├── .github/workflows/
-│   └── playwright.yml                  # CI: functional + visual + contract + performance jobs
+│   └── playwright.yml                 # CI: functional + visual + contract + performance jobs
 ├── .env.test.example
 ├── playwright.config.ts
 ├── tsconfig.json
@@ -142,10 +139,8 @@ import { AppliHelper } from '../../helpers/AppliHelper';
 test('enquiry list visual', async ({ page }) => {
   const percy = new PercyHelper(page);
   const appli = new AppliHelper(page, { testName: 'Enquiry List' });
-
   await listPage.goto();
   await appli.open();
-
   await percy.snapshot({ name: 'Enquiry List - Full Page', fullPage: true, hideSelectors: ['time', '[datetime]'] });
   await percy.responsiveSnapshot('Enquiry List - Responsive');
   await appli.checkWindow('Enquiry List', true);
@@ -160,6 +155,8 @@ test('enquiry list visual', async ({ page }) => {
 ## API Contract Testing (Phase 6)
 
 Consumer-driven contract testing with [Pact](https://pact.io). The consumer (this repo) defines expectations; the Homey API (provider) verifies them via a Pact Broker.
+
+Contract specs live in `contracts/` and are run with Jest (not Playwright):
 
 ```bash
 # Run contract specs
@@ -245,33 +242,49 @@ The `performance-tests` job runs in parallel with other jobs. It is **non-blocki
 | Visual - Enquiries | enquiry-visual.spec.ts | List, detail, wizard, responsive |
 | Visual - Conveyances | conveyance-visual.spec.ts | List, detail tabs, action centre |
 | Visual - Payments | payment-visual.spec.ts | Stripe, quotes, KYC dashboard |
-| Contracts - Enquiries | enquiries.pact.spec.ts | List, get, create, validation, 404 |
-| Contracts - Conveyances | conveyances.pact.spec.ts | List, get, quotes, status transitions |
-| Contracts - Payments | payments.pact.spec.ts | Payment intent, confirm, webhooks |
+| Contracts - Enquiries | contracts/enquiries.pact.spec.ts | List, get, create, validation, 404 |
+| Contracts - Conveyances | contracts/conveyances.pact.spec.ts | List, get, quotes, status transitions |
+| Contracts - Payments | contracts/payments.pact.spec.ts | Payment intent, confirm, webhooks, KYC |
 | Performance | performance-baseline.spec.ts | CWV baselines: auth, enquiries, conveyances, quotes, payments, KYC, docs, Turbo |
 
 ## Environment Variables
 
-```
+```bash
+# Target environment
 BASE_URL=https://staging.homey.app
-AGENT_EMAIL=agent@test.homey.app
-AGENT_PASSWORD=...
-SOLICITOR_EMAIL=solicitor@test.homey.app
-SOLICITOR_PASSWORD=...
-BUYER_EMAIL=buyer@test.homey.app
-BUYER_PASSWORD=...
-ADMIN_EMAIL=admin@test.homey.app
-ADMIN_PASSWORD=...
+
+# Test user credentials (read by AuthHelper.ts and ApiHelper.ts)
+TEST_AGENT_EMAIL=agent@test.homey.app
+TEST_AGENT_PASSWORD=...
+TEST_SOLICITOR_EMAIL=solicitor@test.homey.app
+TEST_SOLICITOR_PASSWORD=...
+TEST_BUYER_EMAIL=buyer@test.homey.app
+TEST_BUYER_PASSWORD=...
+TEST_SELLER_EMAIL=seller@test.homey.app
+TEST_SELLER_PASSWORD=...
+TEST_ADMIN_EMAIL=admin@test.homey.app
+TEST_ADMIN_PASSWORD=...
+
+# AI features
 OPENAI_API_KEY=sk-...
+
+# Visual regression (Phase 5)
 PERCY_TOKEN=...
 APPLITOOLS_API_KEY=...
+
+# Contract testing (Phase 6)
 PACT_BROKER_BASE_URL=https://your-broker.pactflow.io
 PACT_BROKER_TOKEN=...
+
+# Cleanup
 CLEANUP_TEST_DATA=false
+
 # Phase 7 — optional repo variables (not secrets)
-# PERFORMANCE_ENABLED=true   (default true; set false to skip perf job)
-# PERFORMANCE_REQUIRED=true  (default false; set true to block builds on failures)
+# PERFORMANCE_ENABLED=true  (default true; set false to skip perf job)
+# PERFORMANCE_REQUIRED=true (default false; set true to block builds on failures)
 ```
+
+> **CI secrets**: The GitHub Actions workflow maps the GitHub secrets `AGENT_EMAIL`, `SOLICITOR_EMAIL`, etc. to the `TEST_AGENT_EMAIL`, `TEST_SOLICITOR_EMAIL` env vars that the helpers read. In your local `.env.test` file, use the `TEST_` prefix directly.
 
 ## Roadmap
 
