@@ -15,8 +15,6 @@ npx playwright test              # Runs against QA by default
 
 ## Environments
 
-Three live environments are supported out of the box. Select one using the `ENV` variable:
-
 | ENV value | URL | When to use |
 |---|---|---|
 | `qa` (default) | `https://app.qa.homey.co.uk` | Daily regression, PRs |
@@ -24,105 +22,63 @@ Three live environments are supported out of the box. Select one using the `ENV`
 | `reviewapp` | `https://homey-tv-86ev94a8a-ccl--6ewkll.herokuapp.com` | Feature branch review |
 | `local` | `http://localhost:3000` | Local development |
 
-The sign-in page is `/auth` on all environments.
-
-### Running locally against a specific environment
-
 ```bash
-# QA (default)
 ENV=qa npx playwright test
-
-# PrePROD — full suite
 ENV=preprod npx playwright test
-
-# ReviewApp — single spec
 ENV=reviewapp npx playwright test tests/enquiries/
-
-# One-off URL override (for ephemeral Heroku review apps)
-BASE_URL=https://homey-my-feature-xyz.herokuapp.com npx playwright test
-
-# Single role project on QA
-ENV=qa npx playwright test --project=chromium-agent
-
-# Performance baselines against PrePROD
-ENV=preprod npx playwright test --project=performance
+BASE_URL=https://my-branch.herokuapp.com npx playwright test  # one-off override
 ```
 
-### Running in CI
-
-On every **push / PR** the workflow targets QA automatically.
-
-To run against a different environment, go to **Actions → Playwright Tests → Run workflow** and choose from the dropdown:
-
-- `qa` — QA environment
-- `preprod` — PrePROD environment
-- `reviewapp` — ReviewApp (Heroku)
+In CI — go to **Actions → Playwright Tests → Run workflow** and select the environment from the dropdown.
 
 ## Project Structure
 
 ```
 homey-playwright/
 ├── pages/
-│   ├── base/BasePage.ts               # Abstract base: nav, Turbo helpers, flash
-│   ├── auth/LoginPage.ts              # Devise sign-in
-│   ├── enquiries/
-│   │   ├── EnquiryListPage.ts         # List with search/filter
-│   │   ├── EnquiryDetailPage.ts       # Detail + convert to conveyance
-│   │   └── NewEnquiryPage.ts          # 4-step wizard (Wicked gem)
-│   ├── conveyances/
-│   │   ├── ConveyanceListPage.ts      # Cases list
-│   │   └── ConveyanceDetailPage.ts    # Detail + tabs (documents, payments, KYC)
-│   ├── actionCenter/
-│   │   └── ActionCenterPage.ts        # Live workflow (Turbo Streams)
-│   ├── quotes/
-│   │   └── QuoteGeneratorPage.ts      # Pricing engine + PDF preview
-│   ├── payments/
-│   │   └── StripePaymentPage.ts       # Stripe Elements iframe
-│   ├── kyc/
-│   │   └── KYCDashboardPage.ts        # Thirdfort KYC status
-│   ├── documents/
-│   │   └── DocumentUploadPage.ts      # Active Storage drag-drop + validation
-│   └── visual/
-│       └── VisualBasePage.ts          # Turbo-aware snapshot base (Phase 5)
+│   ├── base/BasePage.ts
+│   ├── auth/LoginPage.ts
+│   ├── enquiries/  (EnquiryListPage, EnquiryDetailPage, NewEnquiryPage)
+│   ├── conveyances/ (ConveyanceListPage, ConveyanceDetailPage)
+│   ├── actionCenter/ActionCenterPage.ts
+│   ├── quotes/QuoteGeneratorPage.ts
+│   ├── payments/StripePaymentPage.ts
+│   ├── kyc/KYCDashboardPage.ts
+│   ├── documents/DocumentUploadPage.ts
+│   └── visual/VisualBasePage.ts
 ├── tests/
 │   ├── auth/login.spec.ts
 │   ├── enquiries/create-enquiry.spec.ts
-│   ├── conveyances/
-│   │   ├── action-workflow.spec.ts
-│   │   └── conveyance-detail.spec.ts
+│   ├── conveyances/ (action-workflow, conveyance-detail)
 │   ├── kyc/kyc-workflow.spec.ts
 │   ├── quotes/quote-generator.spec.ts
 │   ├── payments/stripe-payment.spec.ts
-│   ├── visual/
-│   │   ├── enquiry-visual.spec.ts     # Enquiry list/detail/wizard snapshots
-│   │   ├── conveyance-visual.spec.ts  # Conveyance + Action Centre snapshots
-│   │   └── payment-visual.spec.ts     # Stripe, Quote, KYC snapshots
+│   ├── visual/ (enquiry, conveyance, payment visual specs)
+│   ├── accessibility/
+│   │   └── accessibility.spec.ts   # WCAG 2.1 AA checks (Phase 8)
 │   └── performance/
-│       └── performance-baseline.spec.ts  # CWV + load timing baselines (Phase 7)
-├── contracts/                         # Pact consumer contract tests (Phase 6)
-│   ├── enquiries.pact.spec.ts         # Enquiries API consumer contracts
-│   ├── conveyances.pact.spec.ts       # Conveyances API consumer contracts
-│   ├── payments.pact.spec.ts          # Payments + KYC API consumer contracts
-│   └── pact.config.ts                 # Jest configuration for contract tests
+│       └── performance-baseline.spec.ts
+├── contracts/
+│   ├── enquiries.pact.spec.ts
+│   ├── conveyances.pact.spec.ts
+│   ├── payments.pact.spec.ts
+│   └── pact.config.ts
 ├── helpers/
-│   ├── AuthHelper.ts                  # Pre-save browser storage state
-│   ├── ThirdfortMocker.ts             # Webhook simulation
-│   ├── SelectorHealer.ts              # AI self-healing selectors (Phase 3)
-│   ├── TestDataFactory.ts             # UK property test data (Phase 3)
-│   ├── NLTestConverter.ts             # NL to Playwright test (Phase 3)
-│   ├── CIFailureAnalyser.ts           # AI failure analysis (Phase 3)
-│   ├── ApiHelper.ts                   # REST API helper for fast setup/teardown
-│   ├── PercyHelper.ts                 # Percy snapshot wrapper (Phase 5)
-│   ├── AppliHelper.ts                 # Applitools Eyes wrapper (Phase 5)
-│   ├── PactHelper.ts                  # Pact consumer config + response shapes (Phase 6)
-│   └── PerformanceHelper.ts           # CWV measurement + threshold assertions (Phase 7)
-├── ai/
-│   └── PageObjectGenerator.ts         # DOM crawler → POM generator (Phase 3)
-├── fixtures/
-│   ├── auth.setup.ts                  # Global auth state fixture
-│   └── test-data.setup.ts             # Global test data seeding fixture
-├── .github/workflows/
-│   └── playwright.yml                 # CI: functional + visual + contract + performance jobs
+│   ├── AuthHelper.ts
+│   ├── ThirdfortMocker.ts
+│   ├── SelectorHealer.ts
+│   ├── TestDataFactory.ts
+│   ├── NLTestConverter.ts
+│   ├── CIFailureAnalyser.ts
+│   ├── ApiHelper.ts
+│   ├── PercyHelper.ts
+│   ├── AppliHelper.ts
+│   ├── PactHelper.ts
+│   ├── PerformanceHelper.ts
+│   └── A11yHelper.ts              # axe-core WCAG helper (Phase 8)
+├── ai/PageObjectGenerator.ts
+├── fixtures/ (auth.setup.ts, test-data.setup.ts)
+├── .github/workflows/playwright.yml
 ├── .env.test.example
 ├── playwright.config.ts
 ├── tsconfig.json
@@ -131,115 +87,102 @@ homey-playwright/
 
 ## Authentication Strategy
 
-Tests never log in through the UI during test runs. `fixtures/auth.setup.ts` runs once before all test projects and saves browser storage state for each role. Individual tests reuse these saved states.
-
-The login page is `/auth` on all environments (QA, PrePROD, ReviewApp, and local).
+Tests never log in through the UI during test runs. `fixtures/auth.setup.ts` runs once before all test projects and saves browser storage state for each role. The login page is `/auth` on all environments.
 
 ## Test Data Strategy
 
-`fixtures/test-data.setup.ts` seeds reusable test data via the API before any spec runs and saves a `TestDataManifest` to `.test-data/manifest.json`.
-
-```typescript
-import { loadManifest } from '../fixtures/test-data.setup';
-
-test('uses seeded enquiry', async ({ page }) => {
-  const manifest = loadManifest();
-  test.skip(!manifest, 'No test data manifest found');
-  const enquiry = manifest!.enquiries[0];
-  await page.goto(`/enquiries/${enquiry.id}`);
-});
-```
+`fixtures/test-data.setup.ts` seeds reusable test data via the API and saves a `TestDataManifest` to `.test-data/manifest.json`.
 
 ## Visual Regression Testing (Phase 5)
 
-Supports two providers — Percy and Applitools — both are no-ops without their env vars.
-
-### Percy
-
 ```bash
-# Install
-npm install --save-dev @percy/cli @percy/playwright
-
-# Run locally against QA (requires PERCY_TOKEN)
 ENV=qa PERCY_TOKEN=your_token npm run test:visual:percy
-
-# In CI — runs automatically on PRs when PERCY_TOKEN secret is set
-```
-
-### Applitools Eyes (Ultrafast Grid)
-
-```bash
-# Install
-npm install --save-dev @applitools/eyes-playwright
-
-# Run locally against QA (requires APPLITOOLS_API_KEY)
 ENV=qa APPLITOOLS_API_KEY=your_key npm run test:visual
-```
-
-### Using in test files
-
-```typescript
-import { PercyHelper } from '../../helpers/PercyHelper';
-import { AppliHelper } from '../../helpers/AppliHelper';
-
-test('enquiry list visual', async ({ page }) => {
-  const percy = new PercyHelper(page);
-  const appli = new AppliHelper(page, { testName: 'Enquiry List' });
-  await listPage.goto();
-  await appli.open();
-  await percy.snapshot({ name: 'Enquiry List - Full Page', fullPage: true, hideSelectors: ['time', '[datetime]'] });
-  await percy.responsiveSnapshot('Enquiry List - Responsive');
-  await appli.checkWindow('Enquiry List', true);
-  await appli.close(false);
-});
 ```
 
 ## API Contract Testing (Phase 6)
 
-Consumer-driven contract testing with [Pact](https://pact.io). Contract specs live in `contracts/` and are run with Jest (not Playwright):
-
 ```bash
-# Run contract specs
 npm run test:contracts
-
-# Publish pacts to broker
-PACT_BROKER_BASE_URL=https://your-broker.pactflow.io \
-PACT_BROKER_TOKEN=your_token \
-PACT_CONSUMER_VERSION=$(git rev-parse HEAD) \
 npm run pact:publish
 ```
 
 ## Performance Baseline Assertions (Phase 7)
 
-Playwright-native Core Web Vitals (LCP, FCP, TTFB, CLS, TBT) and load timing measured against Google "Good" thresholds.
-
 ```bash
-# Run against QA (default)
 ENV=qa npm run test:performance
-
-# Run against PrePROD
 ENV=preprod npm run test:performance
 ```
 
 ### Default thresholds
 
-| Metric | Threshold | Description |
+| Metric | Threshold |
+|---|---|
+| LCP | ≤ 2500 ms |
+| FCP | ≤ 1800 ms |
+| TTFB | ≤ 800 ms |
+| CLS | ≤ 0.1 |
+| TBT | ≤ 200 ms |
+
+## Accessibility Testing (Phase 8)
+
+WCAG 2.1 Level AA compliance checks powered by [axe-core](https://github.com/dequelabs/axe-core) via `@axe-core/playwright`. No external SaaS required.
+
+### Run locally
+
+```bash
+ENV=qa npm run test:a11y
+ENV=preprod npm run test:a11y
+```
+
+### Coverage
+
+| Page | Rule set | Notes |
 |---|---|---|
-| LCP | ≤ 2500 ms | Largest Contentful Paint |
-| FCP | ≤ 1800 ms | First Contentful Paint |
-| TTFB | ≤ 800 ms | Time to First Byte |
-| CLS | ≤ 0.1 | Cumulative Layout Shift |
-| TBT | ≤ 200 ms | Total Blocking Time |
-| DCL | ≤ 3000 ms | DOM Content Loaded |
-| Load | ≤ 5000 ms | Full page load |
+| Login (/auth) | WCAG 2.1 AA | Form labels, contrast |
+| Enquiry List | WCAG 2.1 AA + heading-order, landmark |  |
+| Enquiry Detail | WCAG 2.1 AA | Manifest-driven |
+| New Enquiry Wizard | WCAG 2.1 AA | Step 1 |
+| Conveyance List | WCAG 2.1 AA + landmark regions |  |
+| Conveyance Detail | WCAG 2.1 AA | Manifest-driven |
+| Action Centre | WCAG 2.1 AA |  |
+| Quote Generator | WCAG 2.1 AA |  |
+| Payments | WCAG 2.1 AA | Stripe iframe excluded |
+| KYC Dashboard | WCAG 2.1 AA | Thirdfort widget excluded |
+| Document Upload | WCAG 2.1 AA |  |
+
+### Using A11yHelper in tests
+
+```typescript
+import { A11yHelper } from '../../helpers/A11yHelper';
+
+test('enquiry list is accessible', async ({ page }) => {
+  const a11y = new A11yHelper(page);
+  await page.goto('/enquiries');
+
+  // Throws if critical/serious violations found
+  await a11y.checkPage('Enquiry List');
+
+  // Custom threshold and excludes
+  await a11y.checkPage('Payments', {
+    minimumImpact: 'moderate',
+    exclude: ['iframe[name*="stripe"]'],
+  });
+});
+```
+
+### CI
+
+The `accessibility-tests` job runs in parallel with functional tests on every push/PR. Violations at `serious` level or above fail the build.
 
 ## Available npm Scripts
 
 | Script | Description |
 |---|---|
-| `npm test` | Run all tests (ENV=qa by default) |
+| `npm test` | Run all functional tests |
+| `npm run test:a11y` | WCAG 2.1 AA accessibility tests |
 | `npm run test:visual` | Visual regression (Applitools) |
-| `npm run test:visual:percy` | Visual regression with Percy wrapper |
+| `npm run test:visual:percy` | Visual regression (Percy) |
 | `npm run test:contracts` | API contract tests (Pact) |
 | `npm run pact:publish` | Publish pacts to Pact Broker |
 | `npm run test:performance` | Performance baseline assertions |
@@ -269,48 +212,31 @@ ENV=preprod npm run test:performance
 | Contracts - Enquiries | contracts/enquiries.pact.spec.ts | List, get, create, validation, 404 |
 | Contracts - Conveyances | contracts/conveyances.pact.spec.ts | List, get, quotes, status transitions |
 | Contracts - Payments | contracts/payments.pact.spec.ts | Payment intent, confirm, webhooks, KYC |
-| Performance | performance-baseline.spec.ts | CWV baselines: auth, enquiries, conveyances, quotes, payments, KYC, docs, Turbo |
+| Performance | performance-baseline.spec.ts | CWV baselines across all pages |
+| Accessibility | accessibility.spec.ts | WCAG 2.1 AA across all pages |
 
 ## Environment Variables
 
-Copy `.env.test.example` to `.env.test` and fill in the values:
-
 ```bash
-# Which environment to target (qa / preprod / reviewapp / local)
-ENV=qa
+ENV=qa   # qa | preprod | reviewapp | local
 
-# Optional: override the URL entirely (e.g. for a custom review app)
-# BASE_URL=https://my-branch-abc123.herokuapp.com
-
-# Credentials — same variable names across all environments
-TEST_AGENT_EMAIL=agent@test.homey.co.uk
-TEST_AGENT_PASSWORD=...
-TEST_SOLICITOR_EMAIL=solicitor@test.homey.co.uk
-TEST_SOLICITOR_PASSWORD=...
+TEST_AGENT_EMAIL=sale-34290@homey.co.uk
+TEST_AGENT_PASSWORD=       # fill in locally or via GitHub secret
+TEST_SOLICITOR_EMAIL=solicitor-27@homey.co.uk
+TEST_SOLICITOR_PASSWORD=
 TEST_BUYER_EMAIL=buyer@test.homey.co.uk
-TEST_BUYER_PASSWORD=...
+TEST_BUYER_PASSWORD=
 TEST_SELLER_EMAIL=seller@test.homey.co.uk
-TEST_SELLER_PASSWORD=...
-TEST_ADMIN_EMAIL=admin@test.homey.co.uk
-TEST_ADMIN_PASSWORD=...
+TEST_SELLER_PASSWORD=
+TEST_ADMIN_EMAIL=admin-16@homey.co.uk
+TEST_ADMIN_PASSWORD=
 
-# AI features
 OPENAI_API_KEY=sk-...
-
-# Visual regression (Phase 5)
 PERCY_TOKEN=...
 APPLITOOLS_API_KEY=...
-
-# Contract testing (Phase 6)
 PACT_BROKER_BASE_URL=https://your-broker.pactflow.io
 PACT_BROKER_TOKEN=...
-
-# Phase 7 — optional repo variables (not secrets)
-# PERFORMANCE_ENABLED=true  (default true; set false to skip perf job in CI)
-# PERFORMANCE_REQUIRED=true (default false; set true to block builds on failures)
 ```
-
-> **CI secrets**: The GitHub Actions workflow maps `AGENT_EMAIL` → `TEST_AGENT_EMAIL` etc. In your local `.env.test` file use the `TEST_` prefix directly.
 
 ## Roadmap
 
@@ -323,3 +249,4 @@ PACT_BROKER_TOKEN=...
 | Phase 5 | Done | Visual regression — Percy + Applitools Ultrafast Grid, Turbo stabilisation |
 | Phase 6 | Done | API contract testing — Pact consumer specs, PactHelper, CI job, Pact Broker publish |
 | Phase 7 | Done | Performance baselines — CWV thresholds, PerformanceHelper, Turbo timing, CI job |
+| Phase 8 | Done | Accessibility — WCAG 2.1 AA, axe-core, A11yHelper, CI job |
