@@ -6,27 +6,46 @@ on:
   pull_request:
     branches: [main, develop]
 
+  # ── Manual trigger — choose which environment to test ──────────────────────
+  # Usage: Actions → "Run workflow" → pick environment
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'qa'
+        type: choice
+        options:
+          - qa
+          - preprod
+          - reviewapp
+
+# ── Resolve the ENV for all jobs ─────────────────────────────────────────────
+# On push/PR defaults to qa.  On manual dispatch uses the chosen input.
 env:
-  BASE_URL: ${{ secrets.BASE_URL }}
-  # AuthHelper.ts reads TEST_AGENT_EMAIL / TEST_AGENT_PASSWORD etc.
-  TEST_AGENT_EMAIL: ${{ secrets.AGENT_EMAIL }}
-  TEST_AGENT_PASSWORD: ${{ secrets.AGENT_PASSWORD }}
-  TEST_SOLICITOR_EMAIL: ${{ secrets.SOLICITOR_EMAIL }}
-  TEST_SOLICITOR_PASSWORD: ${{ secrets.SOLICITOR_PASSWORD }}
-  TEST_BUYER_EMAIL: ${{ secrets.BUYER_EMAIL }}
-  TEST_BUYER_PASSWORD: ${{ secrets.BUYER_PASSWORD }}
-  TEST_SELLER_EMAIL: ${{ secrets.SELLER_EMAIL }}
-  TEST_SELLER_PASSWORD: ${{ secrets.SELLER_PASSWORD }}
-  TEST_ADMIN_EMAIL: ${{ secrets.ADMIN_EMAIL }}
-  TEST_ADMIN_PASSWORD: ${{ secrets.ADMIN_PASSWORD }}
-  OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+  ENV: ${{ github.event.inputs.environment || 'qa' }}
+
+  # ── Credentials — all environments share the same secret names ──────────────
+  # The BASE_URL is resolved from ENV inside playwright.config.ts, so we
+  # do NOT set BASE_URL here; the config handles it automatically.
+  TEST_AGENT_EMAIL:         ${{ secrets.AGENT_EMAIL }}
+  TEST_AGENT_PASSWORD:      ${{ secrets.AGENT_PASSWORD }}
+  TEST_SOLICITOR_EMAIL:     ${{ secrets.SOLICITOR_EMAIL }}
+  TEST_SOLICITOR_PASSWORD:  ${{ secrets.SOLICITOR_PASSWORD }}
+  TEST_BUYER_EMAIL:         ${{ secrets.BUYER_EMAIL }}
+  TEST_BUYER_PASSWORD:      ${{ secrets.BUYER_PASSWORD }}
+  TEST_SELLER_EMAIL:        ${{ secrets.SELLER_EMAIL }}
+  TEST_SELLER_PASSWORD:     ${{ secrets.SELLER_PASSWORD }}
+  TEST_ADMIN_EMAIL:         ${{ secrets.ADMIN_EMAIL }}
+  TEST_ADMIN_PASSWORD:      ${{ secrets.ADMIN_PASSWORD }}
+  OPENAI_API_KEY:           ${{ secrets.OPENAI_API_KEY }}
 
 jobs:
   # ─────────────────────────────────────────────────────────────────────────────
   # Auth setup — save browser storage state for all roles
   # ─────────────────────────────────────────────────────────────────────────────
   auth-setup:
-    name: Auth Setup
+    name: Auth Setup (${{ github.event.inputs.environment || 'qa' }})
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -36,20 +55,24 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npx playwright install --with-deps chromium
+
       - name: Cache auth state
         id: cache-auth
         uses: actions/cache@v4
         with:
           path: .auth/
-          key: auth-${{ runner.os }}-${{ hashFiles('fixtures/auth.setup.ts') }}-${{ github.sha }}
+          # Cache key includes ENV so QA/PrePROD/ReviewApp get separate caches
+          key: auth-${{ runner.os }}-${{ env.ENV }}-${{ hashFiles('fixtures/auth.setup.ts') }}-${{ github.sha }}
           restore-keys: |
-            auth-${{ runner.os }}-${{ hashFiles('fixtures/auth.setup.ts') }}-
+            auth-${{ runner.os }}-${{ env.ENV }}-${{ hashFiles('fixtures/auth.setup.ts') }}-
+
       - name: Run auth setup
         if: steps.cache-auth.outputs.cache-hit != 'true'
         run: npx playwright test fixtures/auth.setup.ts --project=setup
+
       - uses: actions/upload-artifact@v4
         with:
-          name: auth-state
+          name: auth-state-${{ env.ENV }}
           path: .auth/
           retention-days: 1
 
@@ -57,7 +80,7 @@ jobs:
   # Test data seeding — create reusable entities via API
   # ─────────────────────────────────────────────────────────────────────────────
   test-data-setup:
-    name: Test Data Setup
+    name: Test Data Setup (${{ github.event.inputs.environment || 'qa' }})
     runs-on: ubuntu-latest
     needs: auth-setup
     steps:
@@ -69,14 +92,14 @@ jobs:
       - run: npm ci
       - uses: actions/download-artifact@v4
         with:
-          name: auth-state
+          name: auth-state-${{ env.ENV }}
           path: .auth/
       - name: Seed test data
         run: npx playwright test fixtures/test-data.setup.ts --project=setup
         continue-on-error: true
       - uses: actions/upload-artifact@v4
         with:
-          name: test-data-manifest
+          name: test-data-manifest-${{ env.ENV }}
           path: .test-data/manifest.json
           retention-days: 1
 
@@ -84,7 +107,7 @@ jobs:
   # Functional tests
   # ─────────────────────────────────────────────────────────────────────────────
   functional-tests:
-    name: Functional Tests
+    name: Functional Tests (${{ github.event.inputs.environment || 'qa' }})
     runs-on: ubuntu-latest
     needs: test-data-setup
     steps:
@@ -97,11 +120,11 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - uses: actions/download-artifact@v4
         with:
-          name: auth-state
+          name: auth-state-${{ env.ENV }}
           path: .auth/
       - uses: actions/download-artifact@v4
         with:
-          name: test-data-manifest
+          name: test-data-manifest-${{ env.ENV }}
           path: .test-data/
         continue-on-error: true
       - name: Run functional tests
@@ -111,7 +134,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: playwright-report
+          name: playwright-report-${{ env.ENV }}
           path: playwright-report/
           retention-days: 7
       - name: AI failure analysis
@@ -126,7 +149,7 @@ jobs:
   # Visual regression — Percy
   # ─────────────────────────────────────────────────────────────────────────────
   visual-percy:
-    name: Visual Regression (Percy)
+    name: Visual Regression / Percy (${{ github.event.inputs.environment || 'qa' }})
     runs-on: ubuntu-latest
     needs: test-data-setup
     if: ${{ vars.PERCY_ENABLED == 'true' || github.event_name == 'pull_request' }}
@@ -140,11 +163,11 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - uses: actions/download-artifact@v4
         with:
-          name: auth-state
+          name: auth-state-${{ env.ENV }}
           path: .auth/
       - uses: actions/download-artifact@v4
         with:
-          name: test-data-manifest
+          name: test-data-manifest-${{ env.ENV }}
           path: .test-data/
         continue-on-error: true
       - name: Run visual tests with Percy
@@ -155,7 +178,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: visual-report-percy
+          name: visual-report-percy-${{ env.ENV }}
           path: playwright-report/
           retention-days: 7
 
@@ -163,7 +186,7 @@ jobs:
   # Visual regression — Applitools (Ultrafast Grid)
   # ─────────────────────────────────────────────────────────────────────────────
   visual-applitools:
-    name: Visual Regression (Applitools)
+    name: Visual Regression / Applitools (${{ github.event.inputs.environment || 'qa' }})
     runs-on: ubuntu-latest
     needs: test-data-setup
     if: ${{ vars.APPLITOOLS_ENABLED == 'true' }}
@@ -177,11 +200,11 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - uses: actions/download-artifact@v4
         with:
-          name: auth-state
+          name: auth-state-${{ env.ENV }}
           path: .auth/
       - uses: actions/download-artifact@v4
         with:
-          name: test-data-manifest
+          name: test-data-manifest-${{ env.ENV }}
           path: .test-data/
         continue-on-error: true
       - name: Run visual tests with Applitools
@@ -194,7 +217,7 @@ jobs:
   # API contract tests — Pact consumer (Phase 6)
   # ─────────────────────────────────────────────────────────────────────────────
   contract-tests:
-    name: API Contract Tests (Pact)
+    name: API Contract Tests / Pact (${{ github.event.inputs.environment || 'qa' }})
     runs-on: ubuntu-latest
     needs: test-data-setup
     steps:
@@ -206,7 +229,7 @@ jobs:
       - run: npm ci
       - uses: actions/download-artifact@v4
         with:
-          name: auth-state
+          name: auth-state-${{ env.ENV }}
           path: .auth/
       - name: Run Pact consumer contract tests
         run: npm run test:contracts
@@ -214,8 +237,6 @@ jobs:
           CI: true
           PACT_BROKER_BASE_URL: ${{ secrets.PACT_BROKER_BASE_URL }}
           PACT_BROKER_TOKEN: ${{ secrets.PACT_BROKER_TOKEN }}
-      # Publish pacts to Pact Broker only when the secret is configured.
-      # Uses secrets context (not vars) so the non-empty check is reliable.
       - name: Publish pacts to Pact Broker
         if: ${{ success() && secrets.PACT_BROKER_BASE_URL != '' }}
         run: npm run pact:publish
@@ -227,7 +248,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: pact-files
+          name: pact-files-${{ env.ENV }}
           path: pacts/
           retention-days: 7
 
@@ -235,11 +256,9 @@ jobs:
   # Performance baseline assertions (Phase 7)
   # ─────────────────────────────────────────────────────────────────────────────
   performance-tests:
-    name: Performance Baseline Assertions
+    name: Performance Baselines (${{ github.event.inputs.environment || 'qa' }})
     runs-on: ubuntu-latest
     needs: test-data-setup
-    # Run on every push to main and on all PRs.
-    # Gate with a repo variable to skip when BASE_URL is not a live environment.
     if: ${{ vars.PERFORMANCE_ENABLED != 'false' }}
     steps:
       - uses: actions/checkout@v4
@@ -251,19 +270,17 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - uses: actions/download-artifact@v4
         with:
-          name: auth-state
+          name: auth-state-${{ env.ENV }}
           path: .auth/
       - name: Run performance baseline tests
         run: npx playwright test --project=performance
         env:
           CI: true
-        # Allow failures to be non-blocking — report but don't fail the build by default.
-        # Set PERFORMANCE_REQUIRED=true in repo variables to make it blocking.
         continue-on-error: ${{ vars.PERFORMANCE_REQUIRED != 'true' }}
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: performance-report
+          name: performance-report-${{ env.ENV }}
           path: playwright-report/
           retention-days: 14
 
@@ -271,7 +288,7 @@ jobs:
   # Cleanup test data (only when explicitly requested)
   # ─────────────────────────────────────────────────────────────────────────────
   test-data-cleanup:
-    name: Test Data Cleanup
+    name: Test Data Cleanup (${{ github.event.inputs.environment || 'qa' }})
     runs-on: ubuntu-latest
     needs: [functional-tests, visual-percy, contract-tests, performance-tests]
     if: always() && vars.CLEANUP_TEST_DATA == 'true'
@@ -284,11 +301,11 @@ jobs:
       - run: npm ci
       - uses: actions/download-artifact@v4
         with:
-          name: auth-state
+          name: auth-state-${{ env.ENV }}
           path: .auth/
       - uses: actions/download-artifact@v4
         with:
-          name: test-data-manifest
+          name: test-data-manifest-${{ env.ENV }}
           path: .test-data/
         continue-on-error: true
       - name: Teardown test data
