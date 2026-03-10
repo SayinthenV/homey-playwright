@@ -16,10 +16,10 @@ import * as fs from 'fs';
  * Auth state files live in: playwright/.auth/{role}.json
  *
  * Supported environments (set via ENV variable):
- *   ENV=qa         → https://app.qa.homey.co.uk
- *   ENV=preprod    → https://app.preprod.homey.co.uk
- *   ENV=reviewapp  → https://homey-tv-86ev94a8a-ccl--6ewkll.herokuapp.com
- *   ENV=local      → http://localhost:3000  (default)
+ *   ENV=qa        → https://app.qa.homey.co.uk
+ *   ENV=preprod   → https://app.preprod.homey.co.uk
+ *   ENV=reviewapp → https://homey-tv-86ev94a8a-ccl--6ewkll.herokuapp.com
+ *   ENV=local     → http://localhost:3000  (default)
  */
 
 /** Homey's sign-in page path across all environments */
@@ -87,7 +87,7 @@ export class AuthHelper {
       },
       headers: {
         'Content-Type': 'application/json',
-        'Accept':        'application/json',
+        'Accept':       'application/json',
       },
     });
 
@@ -96,8 +96,9 @@ export class AuthHelper {
       throw new Error(`Auth failed for ${user.email} (${response.status()}): ${body}`);
     }
 
-    const data = await response.json();
+    const data  = await response.json();
     const token = data.token || data.access_token;
+
     if (!token) {
       throw new Error(`No token in auth response: ${JSON.stringify(data)}`);
     }
@@ -111,7 +112,10 @@ export class AuthHelper {
    * Use only in auth.setup.ts (not in individual tests).
    * Saves browser storage state to playwright/.auth/{role}.json
    *
-   * Homey's sign-in URL is /auth across QA, PrePROD and ReviewApp.
+   * QA/PrePROD/ReviewApp notes (verified against live QA page):
+   *   - Email field uses type="text" (NOT type="email")
+   *   - Email label text is "Email Address *"
+   *   - Submit button text is "Continue" (NOT "Sign in" or "Log in")
    */
   async loginViaUI(page: Page, user: HomeyUser): Promise<void> {
     await page.goto(AUTH_PATH);
@@ -119,15 +123,24 @@ export class AuthHelper {
     // Wait for the sign-in form to be fully loaded
     await page.waitForLoadState('networkidle');
 
-    // Fill email + password — supports both label-based and input[type] selectors
-    const emailInput = page.getByLabel(/email/i).or(page.locator('input[type="email"]')).first();
-    const passwordInput = page.getByLabel(/password/i).or(page.locator('input[type="password"]')).first();
+    // QA/PrePROD use label "Email Address *" on a type="text" input (not type="email")
+    const emailInput = page
+      .getByLabel(/email address/i)
+      .or(page.locator('input[type="text"]'))
+      .first();
+
+    const passwordInput = page
+      .getByLabel(/password/i)
+      .or(page.locator('input[type="password"]'))
+      .first();
 
     await emailInput.fill(user.email);
     await passwordInput.fill(user.password);
 
-    // Click the sign-in / login button
-    await page.getByRole('button', { name: /sign in|log in|login/i }).click();
+    // Homey QA uses "Continue" as the submit button text (verified on live QA page)
+    await page
+      .getByRole('button', { name: /continue|sign in|log in|login/i })
+      .click();
 
     // Wait until redirected away from the /auth page
     await page.waitForURL(
@@ -144,9 +157,11 @@ export class AuthHelper {
    */
   async saveStorageState(context: BrowserContext, role: string): Promise<string> {
     const authDir = path.join(process.cwd(), 'playwright', '.auth');
+
     if (!fs.existsSync(authDir)) {
       fs.mkdirSync(authDir, { recursive: true });
     }
+
     const filePath = path.join(authDir, `${role}.json`);
     await context.storageState({ path: filePath });
     return filePath;
@@ -166,7 +181,7 @@ export class AuthHelper {
   static isAuthStateValid(role: string, maxAgeHours = 8): boolean {
     const filePath = AuthHelper.authStatePath(role);
     if (!fs.existsSync(filePath)) return false;
-    const stats = fs.statSync(filePath);
+    const stats    = fs.statSync(filePath);
     const ageHours = (Date.now() - stats.mtimeMs) / (1000 * 60 * 60);
     return ageHours < maxAgeHours;
   }
