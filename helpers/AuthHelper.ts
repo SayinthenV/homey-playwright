@@ -20,6 +20,16 @@ import * as fs from 'fs';
  *   ENV=preprod   → https://app.preprod.homey.co.uk
  *   ENV=reviewapp → https://homey-tv-86ev94a8a-ccl--6ewkll.herokuapp.com
  *   ENV=local     → http://localhost:3000  (default)
+ *
+ * QA page notes (verified on live page):
+ *   - Form uses Turbo (Rails) — NOT a React/Vue SPA
+ *   - Sentry + Cloudflare RUM run background XHR → networkidle NEVER settles
+ *   - Use domcontentloaded + explicit element waits instead of networkidle
+ *   - Email input: type="text", name="user_authentication_service[identifier]"
+ *   - Password input: type="password", name="user_authentication_service[password]"
+ *   - Submit button text: "Continue"
+ *   - After submit, URL stays on /auth on failure (adds ?identifier_type=email)
+ *   - After successful login, Turbo redirects away from /auth entirely
  */
 
 /** Homey's sign-in page path across all environments */
@@ -113,21 +123,27 @@ export class AuthHelper {
    * Saves browser storage state to playwright/.auth/{role}.json
    *
    * QA/PrePROD/ReviewApp notes (verified against live QA page):
-   *   - Email field uses type="text" (NOT type="email")
-   *   - Email label text is "Email Address *"
-   *   - Submit button text is "Continue" (NOT "Sign in" or "Log in")
+   *   - Email field: type="text", label "Email Address *"
+   *   - Submit button text: "Continue"
+   *   - Sentry + Cloudflare RUM run background XHR continuously →
+   *     waitForLoadState('networkidle') NEVER resolves on this app.
+   *     We use domcontentloaded + explicit element visibility instead.
+   *   - After successful login Turbo does a full-page redirect away from /auth.
+   *   - A failed login stays on /auth (sometimes appends ?identifier_type=email).
    */
   async loginViaUI(page: Page, user: HomeyUser): Promise<void> {
     await page.goto(AUTH_PATH);
 
-    // Wait for the sign-in form to be fully loaded
-    await page.waitForLoadState('networkidle');
+    // Wait for DOM to be ready — skip networkidle (Sentry/RUM keep it permanently busy)
+    await page.waitForLoadState('domcontentloaded');
 
-    // QA/PrePROD use label "Email Address *" on a type="text" input (not type="email")
+    // Wait for the email input to actually appear in the DOM
     const emailInput = page
       .getByLabel(/email address/i)
-      .or(page.locator('input[type="text"]'))
+      .or(page.locator('input[name*="identifier"], input[type="text"]'))
       .first();
+
+    await emailInput.waitFor({ state: 'visible', timeout: 15_000 });
 
     const passwordInput = page
       .getByLabel(/password/i)
@@ -137,16 +153,17 @@ export class AuthHelper {
     await emailInput.fill(user.email);
     await passwordInput.fill(user.password);
 
-    // Homey QA uses "Continue" as the submit button text (verified on live QA page)
-    await page
-      .getByRole('button', { name: /continue|sign in|log in|login/i })
-      .click();
+    console.log(`[auth] Logging in as ${user.role} (${user.email})`);
 
-    // Wait until redirected away from the /auth page
-    await page.waitForURL(
-      (url) => !url.pathname.startsWith('/auth'),
-      { timeout: 30_000 },
-    );
+    // Click Continue and wait for navigation away from /auth
+    // Use Promise.all to catch the navigation that Turbo triggers synchronously
+    await Promise.all([
+      page.waitForURL(
+        (url) => !url.pathname.startsWith('/auth'),
+        { timeout: 30_000 },
+      ),
+      page.getByRole('button', { name: /continue|sign in|log in|login/i }).click(),
+    ]);
 
     console.log(`[${user.role}] Logged in — now at: ${page.url()}`);
   }
