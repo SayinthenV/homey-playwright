@@ -1,39 +1,45 @@
 {
-            "name": "homey-playwright",
-            "version": "1.0.0",
-            "description": "AI-Assisted Playwright POM Framework for the Homey conveyancing platform",
-            "scripts": {
-                            "test": "playwright test",
-                            "test:headed": "playwright test --headed",
-                            "test:debug": "playwright test --debug",
-                            "test:ui": "playwright test --ui",
-                            "test:report": "playwright show-report",
-                            "test:auth": "playwright test tests/auth/",
-                            "test:enquiries": "playwright test tests/enquiries/",
-                            "test:conveyances": "playwright test tests/conveyances/",
-                            "test:actions": "playwright test tests/actionCenter/",
-                            "test:kyc": "playwright test tests/kyc/",
-                            "test:payments": "playwright test tests/payments/",
-                            "test:quotes": "playwright test tests/quotes/",
-                            "test:documents": "playwright test tests/documents/",
-                            "test:visual": "playwright test tests/visual/",
-                            "test:visual:percy": "percy exec -- playwright test tests/visual/",
-                            "codegen": "playwright codegen",
-                            "generate-pom": "ts-node ai/PageObjectGenerator.ts",
-                            "nl2test": "ts-node helpers/NLTestConverter.ts",
-                            "analyse-failures": "ts-node -e \"require('./helpers/CIFailureAnalyser')\""
-            },
-            "dependencies": {
-                            "dotenv": "^16.4.5",
-                            "openai": "^4.0.0"
-            },
-            "devDependencies": {
-                            "@applitools/eyes-playwright": "^1.0.0",
-                            "@percy/cli": "^1.28.0",
-                            "@percy/playwright": "^1.0.0",
-                            "@playwright/test": "^1.44.0",
-                            "@types/node": "^20.14.0",
-                            "ts-node": "^10.9.2",
-                            "typescript": "^5.4.5"
-            }
+  "name": "homey-playwright",
+  "version": "1.0.0",
+  "description": "AI-Assisted Playwright POM Framework for the Homey conveyancing platform",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:debug": "playwright test --debug",
+    "test:ui": "playwright test --ui",
+    "test:report": "playwright show-report",
+    "test:auth": "playwright test tests/auth/",
+    "test:enquiries": "playwright test tests/enquiries/",
+    "test:conveyances": "playwright test tests/conveyances/",
+    "test:actions": "playwright test tests/actionCenter/",
+    "test:kyc": "playwright test tests/kyc/",
+    "test:payments": "playwright test tests/payments/",
+    "test:quotes": "playwright test tests/quotes/",
+    "test:documents": "playwright test tests/documents/",
+    "test:visual": "playwright test tests/visual/",
+    "test:visual:percy": "percy exec -- playwright test tests/visual/",
+    "test:contracts": "jest --config contracts/pact.config.ts",
+    "pact:publish": "ts-node -e \"const {Publisher} = require('@pact-foundation/pact'); new Publisher({pactFilesOrDirs:['./pacts'],pactBroker:process.env.PACT_BROKER_BASE_URL,pactBrokerToken:process.env.PACT_BROKER_TOKEN,consumerVersion:process.env.PACT_CONSUMER_VERSION||require('./package.json').version,tags:(process.env.PACT_CONSUMER_TAGS||'main').split(',')}).publishPacts().then(()=>console.log('Pacts published')).catch(e=>{console.error(e);process.exit(1)})\"",
+    "codegen": "playwright codegen",
+    "generate-pom": "ts-node ai/PageObjectGenerator.ts",
+    "nl2test": "ts-node helpers/NLTestConverter.ts",
+    "analyse-failures": "ts-node -e \"require('./helpers/CIFailureAnalyser')\""
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "openai": "^4.0.0"
+  },
+  "devDependencies": {
+    "@applitools/eyes-playwright": "^1.0.0",
+    "@pact-foundation/pact": "^12.0.0",
+    "@percy/cli": "^1.28.0",
+    "@percy/playwright": "^1.0.0",
+    "@playwright/test": "^1.44.0",
+    "@types/jest": "^29.5.0",
+    "@types/node": "^20.14.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.2.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.5"
+  }
 }
