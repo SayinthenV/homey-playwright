@@ -27,7 +27,7 @@ setup('authenticate as agent', async ({ page }) => {
   await authHelper.loginViaUI(page, user);
 
   // Verify we landed on a valid authenticated page (not still on /auth)
-  await expect(page).not.toHaveURL(//auth($|\/|\?)/);
+  await expect(page).not.toHaveURL(/\/auth($|\/|\?)/);
 
   // Save storage state (cookies + session)
   await authHelper.saveStorageState(page.context(), 'agent');
@@ -38,8 +38,7 @@ setup('authenticate as agent', async ({ page }) => {
 setup('authenticate as solicitor', async ({ page }) => {
   const user = TEST_USERS.solicitor;
   await authHelper.loginViaUI(page, user);
-
-  await expect(page).not.toHaveURL(//auth($|\/|\?)/);
+  await expect(page).not.toHaveURL(/\/auth($|\/|\?)/);
   await authHelper.saveStorageState(page.context(), 'solicitor');
   console.log('[setup] Solicitor auth state saved');
 });
@@ -48,8 +47,7 @@ setup('authenticate as solicitor', async ({ page }) => {
 setup('authenticate as buyer', async ({ page }) => {
   const user = TEST_USERS.buyer;
   await authHelper.loginViaUI(page, user);
-
-  await expect(page).not.toHaveURL(//auth($|\/|\?)/);
+  await expect(page).not.toHaveURL(/\/auth($|\/|\?)/);
   await authHelper.saveStorageState(page.context(), 'buyer');
   console.log('[setup] Buyer auth state saved');
 });
@@ -58,8 +56,7 @@ setup('authenticate as buyer', async ({ page }) => {
 setup('authenticate as admin', async ({ page }) => {
   const user = TEST_USERS.admin;
   await authHelper.loginViaUI(page, user);
-
-  await expect(page).not.toHaveURL(//auth($|\/|\?)/);
+  await expect(page).not.toHaveURL(/\/auth($|\/|\?)/);
   await authHelper.saveStorageState(page.context(), 'admin');
   console.log('[setup] Admin auth state saved');
 });
