@@ -1,40 +1,75 @@
 import { defineConfig, devices } from '@playwright/test';
 import * as dotenv from 'dotenv';
+
 dotenv.config({ path: '.env.test' });
 
 /**
- * Homey Playwright Configuration
- * Supports: local dev, QA, staging, production (read-only)
+ * ─── Environment resolution ───────────────────────────────────────────────────
+ *
+ * Set the ENV variable to target a specific environment:
+ *
+ *   ENV=qa         → https://app.qa.homey.co.uk
+ *   ENV=preprod    → https://app.preprod.homey.co.uk
+ *   ENV=reviewapp  → https://homey-tv-86ev94a8a-ccl--6ewkll.herokuapp.com
+ *   ENV=local      → http://localhost:3000   (default)
+ *
+ * Examples:
+ *   ENV=qa npx playwright test
+ *   ENV=preprod npx playwright test --project=chromium-agent
+ *
+ * BASE_URL always wins if set explicitly (useful for one-off overrides).
  */
+const ENVIRONMENTS: Record<string, string> = {
+  qa:        'https://app.qa.homey.co.uk',
+  preprod:   'https://app.preprod.homey.co.uk',
+  reviewapp: 'https://homey-tv-86ev94a8a-ccl--6ewkll.herokuapp.com',
+  local:     'http://localhost:3000',
+};
+
+const ENV = (process.env.ENV || 'local').toLowerCase();
+
+const BASE_URL =
+  process.env.BASE_URL ||          // explicit override always wins
+  ENVIRONMENTS[ENV] ||              // lookup from ENV shorthand
+  ENVIRONMENTS.local;               // fallback
+
+/** Auth page path — Homey uses /auth (not the Rails default /users/sign_in) */
+export const AUTH_PATH = '/auth';
+
+console.log(`[playwright.config] ENV=${ENV}  BASE_URL=${BASE_URL}`);
+
 export default defineConfig({
   testDir: './tests',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 4 : 2,
+
   reporter: [
     ['html', { outputFolder: 'playwright-report', open: 'never' }],
     ['list'],
     ...(process.env.CI ? [['github'] as ['github']] : []),
   ],
+
   use: {
-    baseURL: process.env.BASE_URL || 'http://localhost:3000',
+    baseURL: BASE_URL,
     trace: 'on-first-retry',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
-    actionTimeout: 15_000,
+    actionTimeout:   15_000,
     navigationTimeout: 30_000,
     // Pass JWT token via storage state when pre-authenticated
     storageState: process.env.STORAGE_STATE || undefined,
   },
+
   projects: [
-    // ── Setup project: authenticates and saves storage state ──
+    // ── Setup project: authenticates and saves storage state ──────────────
     {
       name: 'setup',
       testMatch: '**/fixtures/auth.setup.ts',
     },
 
-    // ── Agent role tests ──
+    // ── Agent role tests ──────────────────────────────────────────────────
     {
       name: 'chromium-agent',
       use: {
@@ -45,7 +80,7 @@ export default defineConfig({
       testMatch: ['**/tests/auth/**', '**/tests/enquiries/**', '**/tests/conveyances/**'],
     },
 
-    // ── Solicitor role tests ──
+    // ── Solicitor role tests ──────────────────────────────────────────────
     {
       name: 'chromium-solicitor',
       use: {
@@ -56,7 +91,7 @@ export default defineConfig({
       testMatch: ['**/tests/actionCenter/**', '**/tests/kyc/**', '**/tests/documents/**'],
     },
 
-    // ── Buyer role tests ──
+    // ── Buyer role tests ──────────────────────────────────────────────────
     {
       name: 'chromium-buyer',
       use: {
@@ -67,7 +102,7 @@ export default defineConfig({
       testMatch: ['**/tests/payments/**', '**/tests/quotes/**'],
     },
 
-    // ── Admin role tests ──
+    // ── Admin role tests ──────────────────────────────────────────────────
     {
       name: 'chromium-admin',
       use: {
@@ -78,7 +113,7 @@ export default defineConfig({
       testMatch: ['**/tests/admin/**', '**/tests/multiTenant/**'],
     },
 
-    // ── Performance baseline tests (Phase 7) ──
+    // ── Performance baseline tests (Phase 7) ─────────────────────────────
     // Runs as agent (authenticated) so pages render with real data.
     // Single worker — sequential runs avoid noisy-neighbour CPU contention.
     {
@@ -101,9 +136,11 @@ export default defineConfig({
   ],
 
   // Start local dev server automatically when running locally
-  webServer: process.env.CI ? undefined : {
-    command: 'echo "Using existing server at BASE_URL"',
-    url: process.env.BASE_URL || 'http://localhost:3000',
-    reuseExistingServer: true,
-  },
+  webServer: (ENV === 'local' && !process.env.CI)
+    ? {
+        command: 'echo "Using existing local server"',
+        url: BASE_URL,
+        reuseExistingServer: true,
+      }
+    : undefined,
 });
