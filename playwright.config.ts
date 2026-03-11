@@ -26,6 +26,16 @@ const ENVIRONMENTS: Record<string, string> = {
   local: 'http://localhost:3000',
 };
 
+/**
+ * Connectere subdomain — used for the panel manager / agent lead creation wizard.
+ * Lead creation happens at connectere.<subdomain>.homey.co.uk, NOT app.<subdomain>.
+ */
+const CONNECTERE_ENVIRONMENTS: Record<string, string> = {
+  qa: 'https://connectere.qa.homey.co.uk',
+  preprod: 'https://connectere.preprod.homey.co.uk',
+  local: 'http://localhost:3001',
+};
+
 const ENV = (process.env.ENV || 'local').toLowerCase();
 
 const BASE_URL =
@@ -33,10 +43,15 @@ const BASE_URL =
   ENVIRONMENTS[ENV] ||             // lookup from ENV shorthand
   ENVIRONMENTS.local;              // fallback
 
+const CONNECTERE_URL =
+  process.env.CONNECTERE_URL ||
+  CONNECTERE_ENVIRONMENTS[ENV] ||
+  CONNECTERE_ENVIRONMENTS.local;
+
 /** Auth page path — Homey uses /auth (not the Rails default /users/sign_in) */
 export const AUTH_PATH = '/auth';
 
-console.log(`[playwright.config] ENV=${ENV} BASE_URL=${BASE_URL}`);
+console.log(`[playwright.config] ENV=${ENV} BASE_URL=${BASE_URL} CONNECTERE_URL=${CONNECTERE_URL}`);
 
 export default defineConfig({
   testDir: './tests',
@@ -128,6 +143,22 @@ export default defineConfig({
       dependencies: ['setup'],
       testMatch: [
         '**/tests/visual/**',
+      ],
+    },
+
+    // ── Panel Manager / Agent (Connectere) — Lead creation tests ────────
+    // Creates Sale, Purchase, Remortgage, Transfer of Equity, Sale & Purchase leads.
+    // Runs against connectere.<env>.homey.co.uk (different subdomain from app.*).
+    {
+      name: 'chromium-panel-manager',
+      use: {
+        ...devices['Desktop Chrome'],
+        baseURL: CONNECTERE_URL,
+        storageState: 'playwright/.auth/panel_manager.json',
+      },
+      dependencies: ['setup'],
+      testMatch: [
+        '**/tests/leads/**',
       ],
     },
 
