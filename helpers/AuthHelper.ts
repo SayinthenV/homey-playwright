@@ -21,22 +21,33 @@ import * as fs from 'fs';
  *   ENV=reviewapp → https://homey-tv-86ev94a8a-ccl--6ewkll.herokuapp.com
  *   ENV=local     → http://localhost:3000  (default)
  *
- * QA login page DOM (verified live):
- *   Inputs on the page:
- *     1. input[name="authenticity_token"]                    type=hidden  ← CSRF
- *     2. input[name="user_authentication_service[identifier_type]"]  type=hidden  ← tab selector
- *     3. input[name="user_authentication_service[identifier]"]  type=text  ← VISIBLE email field
- *     4. input[name="user_authentication_service[password]"]    type=password  ← VISIBLE password
- *     5. input[name="commit"]                                type=submit  ← Continue button
+ * QA login flow (verified live, 3 steps):
  *
- *   The label "Email Address *" is linked via [for] to the identifier input.
- *   Sentry + Cloudflare RUM run continuous background XHR → networkidle NEVER settles.
- *   After successful login Turbo redirects away from /auth entirely.
- *   A failed login stays on /auth (sometimes adds ?identifier_type=email).
+ *   Step 1 — /auth
+ *     Fill email (input[name="user_authentication_service[identifier]"])
+ *     Fill password (input[name="user_authentication_service[password]"])
+ *     Click "Continue" button → Turbo POST → redirects to step 2
+ *
+ *   Step 2 — /auth/two_factors/prompt  (2FA setup prompt — shown on first login)
+ *     Page has two options:
+ *       - "Continue" link  → /auth/two_factors/setup  (sets up authenticator)
+ *       - "Skip for now"   → /auth/tokens             (skips 2FA for this session)
+ *     For test automation we always click "Skip for now"
+ *
+ *   Step 3 — /auth/tokens or redirect → dashboard
+ *     After skipping 2FA, Turbo redirects to the user's home page (not /auth)
+ *
+ * Other notes:
+ *   - Sentry + Cloudflare RUM run continuous background XHR → networkidle NEVER settles
+ *   - Use domcontentloaded + explicit element waits instead of networkidle
+ *   - A failed login stays on /auth (sometimes adds ?identifier_type=email)
  */
 
 /** Homey's sign-in page path across all environments */
 export const AUTH_PATH = '/auth';
+
+/** 2FA prompt path — shown after first login of a session */
+const TWO_FACTOR_PROMPT_PATH = '/auth/two_factors/prompt';
 
 export interface HomeyUser {
   email: string;
@@ -122,43 +133,55 @@ export class AuthHelper {
 
   /**
    * Full browser login via the Homey /auth page.
+   * Handles the full 3-step login flow including the 2FA prompt.
    * Use only in auth.setup.ts (not in individual tests).
-   * Saves browser storage state to playwright/.auth/{role}.json
    *
-   * Selector strategy (based on live QA DOM inspection):
-   *   - Email input: use exact name attribute "user_authentication_service[identifier]"
-   *     (there are 2 inputs with name*="identifier" — the first is a hidden type)
-   *   - Password input: use exact name attribute "user_authentication_service[password]"
-   *   - Button: role=button with name /continue/i
-   *   - Do NOT use networkidle — Sentry/RUM keep network permanently busy
+   * Flow:
+   *   1. Navigate to /auth → fill credentials → click Continue
+   *   2. If redirected to /auth/two_factors/prompt → click "Skip for now"
+   *   3. Wait until fully redirected away from all /auth paths → save state
    */
   async loginViaUI(page: Page, user: HomeyUser): Promise<void> {
+    // ── Step 1: Fill credentials ─────────────────────────────────────────────
     await page.goto(AUTH_PATH);
 
     // Wait for DOM ready — skip networkidle (Sentry/RUM keep it permanently busy)
     await page.waitForLoadState('domcontentloaded');
 
-    // Use the exact input name to avoid matching the hidden identifier_type input
+    // Use exact input names to avoid matching the hidden identifier_type input
     const emailInput    = page.locator('input[name="user_authentication_service[identifier]"]');
     const passwordInput = page.locator('input[name="user_authentication_service[password]"]');
 
-    // Wait for the visible email input to be ready
     await emailInput.waitFor({ state: 'visible', timeout: 15_000 });
-
     await emailInput.fill(user.email);
     await passwordInput.fill(user.password);
 
     console.log(`[auth] Logging in as ${user.role} (${user.email})`);
 
-    // Click Continue and wait for Turbo to navigate away from /auth
-    await Promise.all([
-      page.waitForURL(
+    // Click Continue — Turbo will either go to 2FA prompt or straight to dashboard
+    await page.getByRole('button', { name: /continue/i }).click();
+
+    // Wait for navigation away from /auth login page
+    await page.waitForURL(
+      (url) => url.pathname !== AUTH_PATH,
+      { timeout: 30_000 },
+    );
+
+    // ── Step 2: Handle 2FA prompt (shown on first login of a fresh session) ──
+    if (page.url().includes(TWO_FACTOR_PROMPT_PATH)) {
+      console.log(`[auth] 2FA prompt shown — clicking "Skip for now"`);
+
+      // "Skip for now" is an <a> link to /auth/tokens
+      await page.getByRole('link', { name: /skip for now/i }).click();
+
+      // Wait until fully past all /auth paths
+      await page.waitForURL(
         (url) => !url.pathname.startsWith('/auth'),
         { timeout: 30_000 },
-      ),
-      page.getByRole('button', { name: /continue/i }).click(),
-    ]);
+      );
+    }
 
+    // ── Step 3: Confirm we are on the dashboard ───────────────────────────────
     console.log(`[${user.role}] Logged in — now at: ${page.url()}`);
   }
 
