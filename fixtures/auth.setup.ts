@@ -11,10 +11,10 @@ import { AuthHelper, TEST_USERS } from '../helpers/AuthHelper';
  * These are loaded by chromium-agent, chromium-solicitor, etc. projects.
  *
  * The login page is /auth across all Homey environments:
- *   QA        → https://app.qa.homey.co.uk/auth
- *   PrePROD   → https://app.preprod.homey.co.uk/auth
- *   ReviewApp → https://homey-tv-86ev94a8a-ccl--6ewkll.herokuapp.com/auth
- *   Local     → http://localhost:3000/auth
+ * QA → https://app.qa.homey.co.uk/auth
+ * PrePROD → https://app.preprod.homey.co.uk/auth
+ * ReviewApp → https://homey-tv-86ev94a8a-ccl--6ewkll.herokuapp.com/auth
+ * Local → http://localhost:3000/auth
  *
  * Run automatically via: playwright.config.ts → projects[0].name = 'setup'
  */
@@ -25,11 +25,7 @@ const authHelper = new AuthHelper();
 setup('authenticate as agent', async ({ page }) => {
   const user = TEST_USERS.agent;
   await authHelper.loginViaUI(page, user);
-
-  // Verify we landed on a valid authenticated page (not still on /auth)
   await expect(page).not.toHaveURL(/\/auth($|\/|\?)/);
-
-  // Save storage state (cookies + session)
   await authHelper.saveStorageState(page.context(), 'agent');
   console.log('[setup] Agent auth state saved');
 });
@@ -59,4 +55,16 @@ setup('authenticate as admin', async ({ page }) => {
   await expect(page).not.toHaveURL(/\/auth($|\/|\?)/);
   await authHelper.saveStorageState(page.context(), 'admin');
   console.log('[setup] Admin auth state saved');
+});
+
+// ── Panel Manager (Connectere) ────────────────────────────────────────────────
+// The panel manager logs in via app.*.homey.co.uk/auth (same auth endpoint),
+// but tests run against connectere.*.homey.co.uk (lead creation wizard).
+// The session cookie is shared across subdomains so one login covers both.
+setup('authenticate as panel manager', async ({ page }) => {
+  const user = TEST_USERS.panelManager;
+  await authHelper.loginViaUI(page, user);
+  await expect(page).not.toHaveURL(/\/auth($|\/|\?)/);
+  await authHelper.saveStorageState(page.context(), 'panel_manager');
+  console.log('[setup] Panel Manager auth state saved → playwright/.auth/panel_manager.json');
 });
