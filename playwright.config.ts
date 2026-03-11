@@ -69,6 +69,7 @@ export default defineConfig({
     },
 
     // ── Agent role tests ────────────────────────────────────────────────
+    // Covers: auth login, enquiry creation/filtering, conveyance detail
     {
       name: 'chromium-agent',
       use: {
@@ -76,10 +77,15 @@ export default defineConfig({
         storageState: 'playwright/.auth/agent.json',
       },
       dependencies: ['setup'],
-      testMatch: ['**/tests/auth/**', '**/tests/enquiries/**', '**/tests/conveyances/**'],
+      testMatch: [
+        '**/tests/auth/**',
+        '**/tests/enquiries/**',
+        '**/tests/conveyances/**',
+      ],
     },
 
     // ── Solicitor role tests ────────────────────────────────────────────
+    // Covers: action centre, KYC workflow
     {
       name: 'chromium-solicitor',
       use: {
@@ -87,10 +93,14 @@ export default defineConfig({
         storageState: 'playwright/.auth/solicitor.json',
       },
       dependencies: ['setup'],
-      testMatch: ['**/tests/actionCenter/**', '**/tests/kyc/**', '**/tests/documents/**'],
+      testMatch: [
+        '**/tests/actionCenter/**',
+        '**/tests/kyc/**',
+      ],
     },
 
     // ── Buyer role tests ────────────────────────────────────────────────
+    // Covers: Stripe payments, quote generator
     {
       name: 'chromium-buyer',
       use: {
@@ -98,10 +108,14 @@ export default defineConfig({
         storageState: 'playwright/.auth/buyer.json',
       },
       dependencies: ['setup'],
-      testMatch: ['**/tests/payments/**', '**/tests/quotes/**'],
+      testMatch: [
+        '**/tests/payments/**',
+        '**/tests/quotes/**',
+      ],
     },
 
     // ── Admin role tests ────────────────────────────────────────────────
+    // Covers: visual regression tests (solicitor + agent views)
     {
       name: 'chromium-admin',
       use: {
@@ -109,7 +123,9 @@ export default defineConfig({
         storageState: 'playwright/.auth/admin.json',
       },
       dependencies: ['setup'],
-      testMatch: ['**/tests/admin/**', '**/tests/multiTenant/**'],
+      testMatch: [
+        '**/tests/visual/**',
+      ],
     },
 
     // ── Accessibility tests (Phase 8) ───────────────────────────────────
