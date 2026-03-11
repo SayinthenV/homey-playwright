@@ -145,10 +145,8 @@ export class AuthHelper {
     // ── Step 1: Fill credentials ─────────────────────────────────────────────
     await page.goto(AUTH_PATH);
 
-    // Wait for DOM ready — skip networkidle (Sentry/RUM keep it permanently busy)
     await page.waitForLoadState('domcontentloaded');
 
-    // Use exact input names to avoid matching the hidden identifier_type input
     const emailInput    = page.locator('input[name="user_authentication_service[identifier]"]');
     const passwordInput = page.locator('input[name="user_authentication_service[password]"]');
 
@@ -158,23 +156,33 @@ export class AuthHelper {
 
     console.log(`[auth] Logging in as ${user.role} (${user.email})`);
 
-    // Click Continue — Turbo will either go to 2FA prompt or straight to dashboard
+    const loginError = page.locator('heading:has-text("Incorrect login details")').or(
+      page.getByRole('heading', { name: /incorrect login/i }),
+    );
+
     await page.getByRole('button', { name: /continue/i }).click();
 
-    // Wait for navigation away from /auth login page
-    await page.waitForURL(
-      (url) => url.pathname !== AUTH_PATH,
-      { timeout: 30_000 },
-    );
+    // Race: navigate away from /auth login page vs "Incorrect login details" error
+    const result = await Promise.race([
+      page.waitForURL((url) => url.pathname !== AUTH_PATH, { timeout: 30_000 })
+        .then(() => 'navigated' as const),
+      loginError.waitFor({ state: 'visible', timeout: 30_000 })
+        .then(() => 'login_failed' as const),
+    ]);
+
+    if (result === 'login_failed') {
+      throw new Error(
+        `Login failed for ${user.role} (${user.email}): "Incorrect login details" — ` +
+        `check that the credentials in .env.test are correct and not expired for this environment.`,
+      );
+    }
 
     // ── Step 2: Handle 2FA prompt (shown on first login of a fresh session) ──
     if (page.url().includes(TWO_FACTOR_PROMPT_PATH)) {
       console.log(`[auth] 2FA prompt shown — clicking "Skip for now"`);
 
-      // "Skip for now" is an <a> link to /auth/tokens
       await page.getByRole('link', { name: /skip for now/i }).click();
 
-      // Wait until fully past all /auth paths
       await page.waitForURL(
         (url) => !url.pathname.startsWith('/auth'),
         { timeout: 30_000 },
