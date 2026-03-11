@@ -1,0 +1,6 @@
+test_case_id,lead_type,postcode,building_number,transaction_stage,offer_price,agency,branch,generated_first_name,generated_last_name,generated_email,generated_phone,created_case_id,run_timestamp
+TC-LEAD-001,sale,E1 6AN,10,offer_accepted,350000,Connectere Agency,Connectere - Main,,,,,,
+TC-LEAD-002,purchase,E1 6AN,10,offer_accepted,425000,Connectere Agency,Connectere - Main,,,,,,
+TC-LEAD-003,remortgage,E1 6AN,10,offer_accepted,300000,Connectere Agency,Connectere - Main,,,,,,
+TC-LEAD-004,transfer_of_equity,E1 6AN,10,offer_accepted,275000,Connectere Agency,Connectere - Main,,,,,,
+TC-LEAD-005,sale_and_purchase,E1 6AN,10,offer_accepted,500000,Connectere Agency,Connectere - Main,,,,,,
