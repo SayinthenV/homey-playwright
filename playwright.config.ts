@@ -8,22 +8,22 @@ dotenv.config({ path: '.env.test' });
  *
  * Set the ENV variable to target a specific environment:
  *
- *   ENV=qa        → https://app.qa.homey.co.uk
- *   ENV=preprod   → https://app.preprod.homey.co.uk
- *   ENV=reviewapp → https://homey-tv-86ev94a8a-ccl--6ewkll.herokuapp.com
- *   ENV=local     → http://localhost:3000  (default)
+ * ENV=qa → https://app.qa.homey.co.uk
+ * ENV=preprod → https://app.preprod.homey.co.uk
+ * ENV=reviewapp → https://homey-tv-86ev94a8a-ccl--6ewkll.herokuapp.com
+ * ENV=local → http://localhost:3000 (default)
  *
  * Examples:
- *   ENV=qa npx playwright test
- *   ENV=preprod npx playwright test --project=chromium-agent
+ * ENV=qa npx playwright test
+ * ENV=preprod npx playwright test --project=chromium-agent
  *
  * BASE_URL always wins if set explicitly (useful for one-off overrides).
  */
 const ENVIRONMENTS: Record<string, string> = {
-  qa:        'https://app.qa.homey.co.uk',
-  preprod:   'https://app.preprod.homey.co.uk',
+  qa: 'https://app.qa.homey.co.uk',
+  preprod: 'https://app.preprod.homey.co.uk',
   reviewapp: 'https://homey-tv-86ev94a8a-ccl--6ewkll.herokuapp.com',
-  local:     'http://localhost:3000',
+  local: 'http://localhost:3000',
 };
 
 const ENV = (process.env.ENV || 'local').toLowerCase();
@@ -36,7 +36,7 @@ const BASE_URL =
 /** Auth page path — Homey uses /auth (not the Rails default /users/sign_in) */
 export const AUTH_PATH = '/auth';
 
-console.log(`[playwright.config] ENV=${ENV}  BASE_URL=${BASE_URL}`);
+console.log(`[playwright.config] ENV=${ENV} BASE_URL=${BASE_URL}`);
 
 export default defineConfig({
   testDir: './tests',
@@ -52,9 +52,12 @@ export default defineConfig({
   use: {
     baseURL: BASE_URL,
     trace: 'on-first-retry',
-    screenshot: 'only-on-failure',
-    video: 'retain-on-failure',
-    actionTimeout:    15_000,
+    // Record screenshots for ALL tests (pass + fail)
+    screenshot: 'on',
+    // Record video for ALL tests (pass + fail)
+    // Videos are saved to test-results/<test-name>/video.webm
+    video: 'on',
+    actionTimeout: 15_000,
     navigationTimeout: 30_000,
     storageState: process.env.STORAGE_STATE || undefined,
   },
