@@ -3,7 +3,7 @@ import { Page, Locator } from '@playwright/test';
 // ─── Step data interfaces (match what create-lead.spec.ts passes) ─────────────
 
 export interface Step1Data {
-  leadType: 'Sale' | 'Purchase' | 'Remortgage' | 'Transfer of Equity' | 'Sale & Purchase';
+  leadType: string; // CSV format: 'sale' | 'purchase' | 'remortgage' | 'transfer_of_equity' | 'sale_and_purchase'
   postcode: string;
   buildingNumber: string;
 }
@@ -16,7 +16,7 @@ export interface Step2Data {
 }
 
 export interface Step3Data {
-  transactionStage: string;
+  transactionStage: string; // CSV format e.g. 'offer_accepted' (value attribute)
   offerPrice: string;
 }
 
@@ -80,8 +80,16 @@ export class CreateLeadPage {
   async fillStep1(data: Step1Data) {
     const { leadType, postcode, buildingNumber } = data;
 
-    // Select lead type radio
+    // Normalise lead type — accept both CSV format (lowercase_underscore) and display format
+    // Maps to the radio input selector
     const radioMap: Record<string, string> = {
+      // Display format (title case)
+      'sale':               'input[id*="business_type_seller"]',
+      'purchase':           'input[id*="business_type_buyer"]',
+      'remortgage':         'input[id*="business_type_remortgage"]',
+      'transfer_of_equity': 'input[id*="business_type_transfer_of_equity"]',
+      'sale_and_purchase':  'input[id*="business_type_sale_and_purchase"]',
+      // Also support human-readable variants
       'Sale':               'input[id*="business_type_seller"]',
       'Purchase':           'input[id*="business_type_buyer"]',
       'Remortgage':         'input[id*="business_type_remortgage"]',
@@ -155,7 +163,14 @@ export class CreateLeadPage {
   // ── Step 3: Transaction ───────────────────────────────────────────────────
 
   async fillStep3(data: Step3Data) {
-    await this.transactionStageSelect.selectOption({ label: data.transactionStage });
+    // transactionStage may be a value attribute (e.g. 'offer_accepted') or label text
+    // Try by value first, then fall back to label
+    const select = this.transactionStageSelect;
+    try {
+      await select.selectOption({ value: data.transactionStage });
+    } catch {
+      await select.selectOption({ label: data.transactionStage });
+    }
     await this.offerPriceInput.fill(data.offerPrice);
   }
 
