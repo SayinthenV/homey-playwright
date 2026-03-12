@@ -1,258 +1,141 @@
-import { Page, Locator, expect } from '@playwright/test';
+import { Page, Locator } from '@playwright/test';
 
-/**
- * CreateLeadPage
- * ──────────────
- * Page Object for the 4-step "Create Lead" wizard on connectere.qa.homey.co.uk.
- *
- * URL pattern: https://connectere.qa.homey.co.uk/leads/new/property
- *
- * Steps:
- *  1. Property  – lead type radio + property address lookup
- *  2. Clients   – client role, name, contact details
- *  3. Transaction – stage, offer price, additional flags
- *  4. Details   – agency, branch, key persons, case note → Create Lead
- */
-
-export type LeadType =
-      | 'sale'
-  | 'purchase'
-  | 'remortgage'
-  | 'transfer_of_equity'
-  | 'sale_and_purchase';
-
-export type TransactionStage =
-      | 'offer_accepted'
-  | 'offer_received'
-  | 'offer_imminent'
-  | 'on_market'
-  | 'valuation_booked'
-  | 'enquiry_made';
-
-export interface Step1Data {
-      leadType: LeadType;
-      postcode: string;
-      buildingNumber: string;
-}
-
-export interface Step2Data {
-      firstName: string;
-      lastName: string;
-      email?: string;
-      phone?: string;
-}
-
-export interface Step3Data {
-      transactionStage: TransactionStage;
-      offerPrice: string | number;
-}
-
-export interface Step4Data {
-      agency: string;
-      branch: string;
+export interface LeadData {
+  testCaseId: string;
+  leadType: 'Sale' | 'Purchase' | 'Remortgage' | 'Transfer of Equity' | 'Sale & Purchase';
+  postcode: string;
+  buildingNumber: string;
+  transactionStage: string;
+  offerPrice: string;
+  agency: string;
+  branch: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
 }
 
 export class CreateLeadPage {
-      readonly page: Page;
-
-  // ── Step 1: Property ──────────────────────────────────────────────────────
-  readonly saleRadio: Locator;
-      readonly purchaseRadio: Locator;
-      readonly remortgageRadio: Locator;
-      readonly transferOfEquityRadio: Locator;
-      readonly saleAndPurchaseRadio: Locator;
-      readonly postcodeInput: Locator;
-
-  // ── Step 2: Clients ───────────────────────────────────────────────────────
-  readonly legalOwnerRadio: Locator;
-      readonly firstNameInput: Locator;
-      readonly lastNameInput: Locator;
-      readonly emailInput: Locator;
-      readonly phoneInput: Locator;
-
-  // ── Step 3: Transaction ───────────────────────────────────────────────────
-  readonly transactionStageSelect: Locator;
-      readonly offerPriceInput: Locator;
-
-  // ── Step 4: Details ───────────────────────────────────────────────────────
-  readonly agencySelect: Locator;
-      readonly branchSelect: Locator;
-
-  // ── Navigation ────────────────────────────────────────────────────────────
-  readonly nextButton: Locator;
-      readonly createLeadButton: Locator;
-      readonly cancelButton: Locator;
+  readonly page: Page;
 
   constructor(page: Page) {
-          this.page = page;
-
-        // Step 1 — use stable id-based selectors
-        this.saleRadio = page.locator('input[id*="business_type_seller"]');
-          this.purchaseRadio = page.locator('input[id*="business_type_buyer"]');
-          this.remortgageRadio = page.locator('input[id*="business_type_remortgage"]');
-          this.transferOfEquityRadio = page.locator('input[id*="business_type_transfer_of_equity"]');
-          this.saleAndPurchaseRadio = page.locator('input[id*="business_type_sale_and_purchase"]');
-          this.postcodeInput = page.locator('#postcode_search_leads_property_form');
-
-        // Step 2 — use stable id-based selectors
-        this.legalOwnerRadio = page.getByRole('radio', { name: /legal owner/i });
-          this.firstNameInput = page.locator('input[id*="first_name"]').first();
-          this.lastNameInput = page.locator('input[id*="last_name"]').first();
-          this.emailInput = page.locator('input[type="email"]').first();
-          this.phoneInput = page.locator('input[type="tel"]').first();
-
-        // Step 3 — use stable id-based selectors
-        this.transactionStageSelect = page.locator('select[id*="grade"]');
-          this.offerPriceInput = page.locator('input[id*="price"]');
-
-        // Step 4 — use stable id-based selectors
-        this.agencySelect = page.locator('select[id*="referring_company"]');
-          this.branchSelect = page.locator('select[id*="branch_id"]');
-
-        // Nav
-        this.nextButton = page.getByRole('button', { name: /^next$/i });
-          this.createLeadButton = page.getByRole('button', { name: /create lead/i });
-          this.cancelButton = page.getByRole('button', { name: /^cancel$/i });
+    this.page = page;
   }
 
-  // ── Navigation ────────────────────────────────────────────────────────────
-  async goto(): Promise<void> {
-          await this.page.goto('/leads/new/property');
-          await this.page.waitForLoadState('domcontentloaded');
-          await this.page.waitForSelector('input[type="radio"]', { state: 'visible', timeout: 15_000 });
+  async goto() {
+    await this.page.goto('https://connectere.qa.homey.co.uk/leads/new/property', {
+      waitUntil: 'domcontentloaded',
+      timeout: 30000,
+    });
   }
 
-  async clickNext(): Promise<void> {
-          await this.nextButton.click();
-          await this.page.waitForLoadState('domcontentloaded');
+  async fillStep1(data: LeadData) {
+    const { leadType, postcode, buildingNumber } = data;
+
+    // Select lead type radio
+    const radioMap: Record<string, string> = {
+      'Sale':               'input[id*="business_type_seller"]',
+      'Purchase':           'input[id*="business_type_buyer"]',
+      'Remortgage':         'input[id*="business_type_remortgage"]',
+      'Transfer of Equity': 'input[id*="business_type_transfer_of_equity"]',
+      'Sale & Purchase':    'input[id*="business_type_sale_and_purchase"]',
+    };
+    const radioSelector = radioMap[leadType];
+    if (!radioSelector) throw new Error(`Unknown lead type: ${leadType}`);
+
+    await this.page.locator(radioSelector).click({ force: true });
+
+    // --- Postcode ---
+    // MUST use pressSequentially (not fill) so Stimulus keyboard listeners fire
+    const postcodeInput = this.page.locator('#postcode_search_leads_property_form');
+    await postcodeInput.click();
+    await postcodeInput.pressSequentially(postcode, { delay: 50 });
+    await postcodeInput.press('Tab'); // blur triggers Stimulus to enable building search
+
+    // Wait for the building number input placeholder to change from default to "Flat/Building Number"
+    await this.page.waitForFunction(
+      () => {
+        const el = document.querySelector('input[id*="address_search"]') as HTMLInputElement | null;
+        return el && el.placeholder.toLowerCase().includes('flat') || el?.placeholder.toLowerCase().includes('building');
+      },
+      { timeout: 15000 }
+    );
+
+    // --- Building Number ---
+    // MUST use pressSequentially so Stimulus keyboard listeners fire the address lookup API call
+    const buildingSearchInput = this.page.locator('input[id*="address_search"]');
+    await buildingSearchInput.click();
+    await buildingSearchInput.pressSequentially(buildingNumber, { delay: 100 });
+
+    // Wait for address dropdown options (Stimulus-powered autocomplete)
+    await this.page.locator('li.address_search__option').first().waitFor({ state: 'visible', timeout: 15000 });
+
+    // Click the first option that starts with our building number
+    const firstOption = this.page.locator('li.address_search__option').first();
+    await firstOption.click();
+
+    // Wait for UPRN to be populated (confirms address was selected)
+    await this.page.waitForFunction(
+      () => {
+        const el = document.querySelector('input[id*="uprn"]') as HTMLInputElement | null;
+        return el && el.value && el.value.trim().length > 0;
+      },
+      { timeout: 15000 }
+    );
   }
 
-  async clickCreateLead(): Promise<void> {
-          await this.createLeadButton.click();
-          await this.page.waitForLoadState('domcontentloaded');
+  async fillStep2(data: LeadData) {
+    // Click "Legal owner" radio (first option)
+    const legalOwnerRadio = this.page.locator('input[type="radio"]').filter({ hasText: /legal owner/i }).first();
+    // Try the label approach
+    const legalOwnerLabel = this.page.locator('label').filter({ hasText: /legal owner/i }).first();
+    if (await legalOwnerLabel.isVisible()) {
+      await legalOwnerLabel.click();
+    } else {
+      // Fallback: click first radio in client section
+      await this.page.locator('input[id*="client_type"]').first().click({ force: true });
+    }
+
+    await this.page.locator('input[id*="email"]').fill(data.email);
+    await this.page.locator('input[id*="first_name"]').fill(data.firstName);
+    await this.page.locator('input[id*="last_name"]').fill(data.lastName);
   }
 
-  // ── Step 1: Property ──────────────────────────────────────────────────────
-  private leadTypeRadio(leadType: LeadType): Locator {
-          const map: Record<LeadType, Locator> = {
-                    sale: this.saleRadio,
-                    purchase: this.purchaseRadio,
-                    remortgage: this.remortgageRadio,
-                    transfer_of_equity: this.transferOfEquityRadio,
-                    sale_and_purchase: this.saleAndPurchaseRadio,
-          };
-          return map[leadType];
+  async fillStep3(data: LeadData) {
+    // Transaction stage
+    await this.page.locator('select[id*="grade"]').selectOption({ label: data.transactionStage });
+
+    // Offer price
+    await this.page.locator('input[id*="price"]').fill(data.offerPrice);
   }
 
-  async fillStep1(data: Step1Data): Promise<void> {
-          // Select lead type
-        await this.leadTypeRadio(data.leadType).click();
+  async fillStep4(data: LeadData) {
+    // Agency / Referring company
+    await this.page.locator('select[id*="referring_company"]').selectOption({ label: data.agency });
 
-        // Fill postcode and tab away to enable the building number field
-        await this.postcodeInput.fill(data.postcode);
-          await this.postcodeInput.press('Tab');
+    // Wait for branch to populate after agency selection
+    await this.page.waitForFunction(
+      () => {
+        const branchSelect = document.querySelector('select[id*="branch_id"]') as HTMLSelectElement | null;
+        return branchSelect && branchSelect.options.length > 1;
+      },
+      { timeout: 10000 }
+    );
 
-        // Wait for the building number search field to become active
-        // (placeholder changes from "Enter a postcode..." to "Enter Flat/Building Number...")
-        const buildingInput = this.page.locator(
-                  'input[id*="address_search"]',
-                );
-          await buildingInput.waitFor({ state: 'visible', timeout: 10_000 });
-          await buildingInput.click();
-          await buildingInput.fill(data.buildingNumber);
-
-        // Wait for address suggestion dropdown — use specific class to avoid matching nav <li> elements
-        const addressSuggestion = this.page
-            .locator('li.address_search__option')
-            .filter({ hasText: new RegExp(`^${data.buildingNumber}[,\\s]`, 'i') })
-            .first();
-          await addressSuggestion.waitFor({ state: 'visible', timeout: 15_000 });
-          await addressSuggestion.click();
-
-        // Verify address was selected: wait for the hidden UPRN input to be populated
-        // (this is the most reliable signal — the UPRN field gets the value after selection)
-        await this.page.waitForFunction(
-                  () => {
-                              const uprn = document.querySelector(
-                                            'input[id*="uprn"]',
-                                          ) as HTMLInputElement | null;
-                              return uprn !== null && uprn.value.trim().length > 0;
-                  },
-            { timeout: 10_000 },
-                );
+    // Branch
+    await this.page.locator('select[id*="branch_id"]').selectOption({ label: data.branch });
   }
 
-  // ── Step 2: Clients ───────────────────────────────────────────────────────
-  async fillStep2(data: Step2Data): Promise<void> {
-          await this.legalOwnerRadio.click();
-
-        if (data.email) {
-                  await this.emailInput.fill(data.email);
-        }
-          if (data.phone) {
-                    await this.phoneInput.fill(data.phone);
-          }
-
-        await this.firstNameInput.fill(data.firstName);
-          await this.lastNameInput.fill(data.lastName);
+  async submitLead() {
+    await this.page.getByRole('button', { name: /create lead/i }).click();
   }
 
-  // ── Step 3: Transaction ───────────────────────────────────────────────────
-  async fillStep3(data: Step3Data): Promise<void> {
-          await this.transactionStageSelect.selectOption(data.transactionStage);
-          await this.offerPriceInput.fill(String(data.offerPrice));
-  }
-
-  // ── Step 4: Details ───────────────────────────────────────────────────────
-  async fillStep4(data: Step4Data): Promise<void> {
-          await this.agencySelect.selectOption({ label: data.agency });
-
-        // Wait for branch dropdown to be populated after agency selection
-        await this.page.waitForFunction(
-                  (branchName: string) => {
-                              const sel = document.querySelector(
-                                            'select[id*="branch_id"]',
-                                          ) as HTMLSelectElement | null;
-                              if (!sel) return false;
-                              return Array.from(sel.options).some(o => o.text.includes(branchName));
-                  },
-                  data.branch,
-            { timeout: 10_000 },
-                );
-          await this.branchSelect.selectOption({ label: data.branch });
-  }
-
-  // ── Full wizard flow ───────────────────────────────────────────────────────
-  async createLead(
-          step1: Step1Data,
-          step2: Step2Data,
-          step3: Step3Data,
-          step4: Step4Data,
-        ): Promise<string> {
-          await this.goto();
-          await this.fillStep1(step1);
-          await this.clickNext();
-          await this.fillStep2(step2);
-          await this.clickNext();
-          await this.fillStep3(step3);
-          await this.clickNext();
-          await this.fillStep4(step4);
-          await this.clickCreateLead();
-
-        await this.page.waitForURL(/\/leads\/[a-z0-9-]+|dashboard/, { timeout: 30_000 });
-          const url = this.page.url();
-          const match = url.match(/\/leads\/([a-z0-9-]+)/i);
-          return match ? match[1].toUpperCase() : '';
-  }
-
-  // ── Assertions ─────────────────────────────────────────────────────────────
-  async expectOnStep(stepLabel: string): Promise<void> {
-          await expect(this.page.getByText(stepLabel, { exact: true }).first()).toBeVisible();
-  }
-
-  async expectSuccessFlash(): Promise<void> {
-          await expect(
-                    this.page.getByText(/lead (created|successfully)/i),
-                  ).toBeVisible({ timeout: 10_000 });
+  async getCreatedCaseId(): Promise<string> {
+    // After creation, case ID appears in URL e.g. /cases/12345
+    await this.page.waitForURL(/\/cases\/\d+/, { timeout: 30000 });
+    const url = this.page.url();
+    const match = url.match(/\/cases\/(\d+)/);
+    if (!match) throw new Error(`Could not extract case ID from URL: ${url}`);
+    return match[1];
   }
 }
