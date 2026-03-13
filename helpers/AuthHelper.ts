@@ -16,10 +16,10 @@ import * as fs from 'fs';
  * Auth state files live in: playwright/.auth/{role}.json
  *
  * Supported environments (set via ENV variable):
- *   ENV=qa        → https://app.qa.homey.co.uk
- *   ENV=preprod   → https://app.preprod.homey.co.uk
+ *   ENV=qa      → https://app.qa.homey.co.uk
+ *   ENV=preprod → https://app.preprod.homey.co.uk
  *   ENV=reviewapp → https://homey-tv-86ev94a8a-ccl--6ewkll.herokuapp.com
- *   ENV=local     → http://localhost:3000  (default)
+ *   ENV=local   → http://localhost:3000  (default)
  *
  * QA login flow (verified live, 3 steps):
  *
@@ -30,9 +30,14 @@ import * as fs from 'fs';
  *
  *   Step 2 — /auth/two_factors/prompt  (2FA setup prompt — shown on first login)
  *     Page has two options:
- *       - "Continue" link  → /auth/two_factors/setup  (sets up authenticator)
- *       - "Skip for now"   → /auth/tokens             (skips 2FA for this session)
+ *       - "Continue" link → /auth/two_factors/setup  (sets up authenticator)
+ *       - "Skip for now"  → /auth/tokens             (skips 2FA for this session)
  *     For test automation we always click "Skip for now"
+ *
+ *     IMPORTANT: Because Hotwire/Turbo drives navigation, the URL in the browser
+ *     may have already advanced before the DOM is fully swapped.  We therefore
+ *     do NOT rely solely on checking page.url() — instead we always probe for the
+ *     "skip" element after login and act if it is present.
  *
  *   Step 3 — /auth/tokens or redirect → dashboard
  *     After skipping 2FA, Turbo redirects to the user's home page (not /auth)
@@ -46,185 +51,215 @@ import * as fs from 'fs';
 /** Homey's sign-in page path across all environments */
 export const AUTH_PATH = '/auth';
 
-/** 2FA prompt path — shown after first login of a session */
+/** 2FA prompt path — shown after first login of a fresh session */
 const TWO_FACTOR_PROMPT_PATH = '/auth/two_factors/prompt';
 
 export interface HomeyUser {
-  email: string;
-  password: string;
-  role: 'agent' | 'solicitor' | 'buyer' | 'seller' | 'panel_manager' | 'admin';
+    email: string;
+    password: string;
+    role: 'agent' | 'solicitor' | 'buyer' | 'seller' | 'panel_manager' | 'admin';
 }
 
 export const TEST_USERS: Record<string, HomeyUser> = {
-  agent: {
-    email:    process.env.TEST_AGENT_EMAIL    || 'agent@test.homey.com',
-    password: process.env.TEST_AGENT_PASSWORD || 'test_password',
-    role: 'agent',
-  },
-  solicitor: {
-    email:    process.env.TEST_SOLICITOR_EMAIL    || 'solicitor@test.homey.com',
-    password: process.env.TEST_SOLICITOR_PASSWORD || 'test_password',
-    role: 'solicitor',
-  },
-  buyer: {
-    email:    process.env.TEST_BUYER_EMAIL    || 'buyer@test.homey.com',
-    password: process.env.TEST_BUYER_PASSWORD || 'test_password',
-    role: 'buyer',
-  },
-  seller: {
-    email:    process.env.TEST_SELLER_EMAIL    || 'seller@test.homey.com',
-    password: process.env.TEST_SELLER_PASSWORD || 'test_password',
-    role: 'seller',
-  },
-  panel_manager: {
-    email:    process.env.TEST_PANEL_MANAGER_EMAIL    || 'panel@test.homey.com',
-    password: process.env.TEST_PANEL_MANAGER_PASSWORD || 'test_password',
-    role: 'panel_manager',
-  },
-  admin: {
-    email:    process.env.TEST_ADMIN_EMAIL    || 'admin@test.homey.com',
-    password: process.env.TEST_ADMIN_PASSWORD || 'test_password',
-    role: 'admin',
-  },
+    agent: {
+          email: process.env.TEST_AGENT_EMAIL || 'agent@test.homey.com',
+          password: process.env.TEST_AGENT_PASSWORD || 'test_password',
+          role: 'agent',
+    },
+    solicitor: {
+          email: process.env.TEST_SOLICITOR_EMAIL || 'solicitor@test.homey.com',
+          password: process.env.TEST_SOLICITOR_PASSWORD || 'test_password',
+          role: 'solicitor',
+    },
+    buyer: {
+          email: process.env.TEST_BUYER_EMAIL || 'buyer@test.homey.com',
+          password: process.env.TEST_BUYER_PASSWORD || 'test_password',
+          role: 'buyer',
+    },
+    seller: {
+          email: process.env.TEST_SELLER_EMAIL || 'seller@test.homey.com',
+          password: process.env.TEST_SELLER_PASSWORD || 'test_password',
+          role: 'seller',
+    },
+    panel_manager: {
+          email: process.env.TEST_PANEL_MANAGER_EMAIL || 'panel@test.homey.com',
+          password: process.env.TEST_PANEL_MANAGER_PASSWORD || 'test_password',
+          role: 'panel_manager',
+    },
+    admin: {
+          email: process.env.TEST_ADMIN_EMAIL || 'admin@test.homey.com',
+          password: process.env.TEST_ADMIN_PASSWORD || 'test_password',
+          role: 'admin',
+    },
 };
 
 export class AuthHelper {
-  private readonly baseURL: string;
+    private readonly baseURL: string;
 
   constructor(baseURL?: string) {
-    this.baseURL = baseURL || process.env.BASE_URL || 'http://localhost:3000';
+        this.baseURL = baseURL || process.env.BASE_URL || 'http://localhost:3000';
   }
 
   /**
-   * Authenticates via Homey's API and returns the JWT token.
-   * Does NOT touch the browser — pure HTTP request.
-   */
+     * Authenticates via Homey's API and returns the JWT token.
+     * Does NOT touch the browser — pure HTTP request.
+     */
   async getJwtToken(user: HomeyUser): Promise<string> {
-    const apiContext = await request.newContext({ baseURL: this.baseURL });
+        const apiContext = await request.newContext({ baseURL: this.baseURL });
+        const response = await apiContext.post('/api/v2/auth/sign_in', {
+                data: {
+                          user: {
+                                      email: user.email,
+                                      password: user.password,
+                          },
+                },
+                headers: {
+                          'Content-Type': 'application/json',
+                          'Accept': 'application/json',
+                },
+        });
 
-    const response = await apiContext.post('/api/v2/auth/sign_in', {
-      data: {
-        user: {
-          email:    user.email,
-          password: user.password,
-        },
-      },
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept':       'application/json',
-      },
-    });
+      if (!response.ok()) {
+              const body = await response.text();
+              throw new Error(`Auth failed for ${user.email} (${response.status()}): ${body}`);
+      }
 
-    if (!response.ok()) {
-      const body = await response.text();
-      throw new Error(`Auth failed for ${user.email} (${response.status()}): ${body}`);
-    }
+      const data = await response.json();
+        const token = data.token || data.access_token;
+        if (!token) {
+                throw new Error(`No token in auth response: ${JSON.stringify(data)}`);
+        }
 
-    const data  = await response.json();
-    const token = data.token || data.access_token;
-
-    if (!token) {
-      throw new Error(`No token in auth response: ${JSON.stringify(data)}`);
-    }
-
-    await apiContext.dispose();
-    return token;
+      await apiContext.dispose();
+        return token;
   }
 
   /**
-   * Full browser login via the Homey /auth page.
-   * Handles the full 3-step login flow including the 2FA prompt.
-   * Use only in auth.setup.ts (not in individual tests).
-   *
-   * Flow:
-   *   1. Navigate to /auth → fill credentials → click Continue
-   *   2. If redirected to /auth/two_factors/prompt → click "Skip for now"
-   *   3. Wait until fully redirected away from all /auth paths → save state
-   */
+     * Full browser login via the Homey /auth page.
+     * Handles the full 3-step login flow including the 2FA prompt.
+     * Use only in auth.setup.ts (not in individual tests).
+     *
+     * Flow:
+     * 1. Navigate to /auth → fill credentials → click Continue
+     * 2. If the 2FA "Skip for now" element appears → click it
+     *    (detected by DOM presence, not URL, to survive Turbo navigation races)
+     * 3. Wait until fully redirected away from all /auth paths → save state
+     */
   async loginViaUI(page: Page, user: HomeyUser): Promise<void> {
-    // ── Step 1: Fill credentials ─────────────────────────────────────────────
-    await page.goto(AUTH_PATH);
+        // ── Step 1: Fill credentials ───────────────────────────────────────────────
+      await page.goto(AUTH_PATH);
+        await page.waitForLoadState('domcontentloaded');
 
-    await page.waitForLoadState('domcontentloaded');
+      const emailInput = page.locator('input[name="user_authentication_service[identifier]"]');
+        const passwordInput = page.locator('input[name="user_authentication_service[password]"]');
 
-    const emailInput    = page.locator('input[name="user_authentication_service[identifier]"]');
-    const passwordInput = page.locator('input[name="user_authentication_service[password]"]');
+      await emailInput.waitFor({ state: 'visible', timeout: 15_000 });
+        await emailInput.fill(user.email);
+        await passwordInput.fill(user.password);
 
-    await emailInput.waitFor({ state: 'visible', timeout: 15_000 });
-    await emailInput.fill(user.email);
-    await passwordInput.fill(user.password);
+      console.log(`[auth] Logging in as ${user.role} (${user.email})`);
 
-    console.log(`[auth] Logging in as ${user.role} (${user.email})`);
+      const loginError = page.locator('heading:has-text("Incorrect login details")').or(
+              page.getByRole('heading', { name: /incorrect login/i }),
+            );
 
-    const loginError = page.locator('heading:has-text("Incorrect login details")').or(
-      page.getByRole('heading', { name: /incorrect login/i }),
-    );
+      await page.getByRole('button', { name: /continue/i }).click();
 
-    await page.getByRole('button', { name: /continue/i }).click();
+      // Race: navigate away from /auth login page vs "Incorrect login details" error
+      const result = await Promise.race([
+              page.waitForURL((url) => url.pathname !== AUTH_PATH, { timeout: 30_000 })
+                .then(() => 'navigated' as const),
+              loginError.waitFor({ state: 'visible', timeout: 30_000 })
+                .then(() => 'login_failed' as const),
+            ]);
 
-    // Race: navigate away from /auth login page vs "Incorrect login details" error
-    const result = await Promise.race([
-      page.waitForURL((url) => url.pathname !== AUTH_PATH, { timeout: 30_000 })
-        .then(() => 'navigated' as const),
-      loginError.waitFor({ state: 'visible', timeout: 30_000 })
-        .then(() => 'login_failed' as const),
-    ]);
+      if (result === 'login_failed') {
+              throw new Error(
+                        `Login failed for ${user.role} (${user.email}): "Incorrect login details" — ` +
+                        `check that the credentials in .env.test are correct and not expired for this environment.`,
+                      );
+      }
 
-    if (result === 'login_failed') {
-      throw new Error(
-        `Login failed for ${user.role} (${user.email}): "Incorrect login details" — ` +
-        `check that the credentials in .env.test are correct and not expired for this environment.`,
-      );
-    }
+      // ── Step 2: Handle 2FA prompt ──────────────────────────────────────────────
+      //
+      // The 2FA "Skip for now" element may be rendered as either a <button> or an
+      // <a> depending on the app version.  The text may also vary slightly.
+      // We probe for it using a broad locator that covers all known variants:
+      //   • getByRole('link')   — <a> element
+      //   • getByRole('button') — <button> element
+      //   • getByText()         — any element containing the text
+      //
+      // We do NOT rely exclusively on page.url().includes(TWO_FACTOR_PROMPT_PATH)
+      // because Turbo can advance the URL before the DOM swap completes, causing
+      // the condition to be false even though the 2FA page is still visible.
+      //
+      // Strategy: after the initial redirect away from /auth, give the 2FA element
+      // up to 10 s to appear.  If it shows up, click it and wait for the final
+      // redirect.  If it never appears we assume no 2FA was required and move on.
+      const skipLocator = page.locator(
+              [
+                        'a:has-text("Skip for now")',
+                        'button:has-text("Skip for now")',
+                        'a:has-text("Skip")',
+                        'button:has-text("Skip")',
+                      ].join(', '),
+            );
 
-    // ── Step 2: Handle 2FA prompt (shown on first login of a fresh session) ──
-    if (page.url().includes(TWO_FACTOR_PROMPT_PATH)) {
-      console.log(`[auth] 2FA prompt shown — clicking "Skip for now"`);
+      try {
+              await skipLocator.first().waitFor({ state: 'visible', timeout: 10_000 });
+              console.log(`[auth] 2FA prompt shown — clicking "Skip for now"`);
+              await skipLocator.first().click();
+              await page.waitForURL(
+                        (url) => !url.pathname.startsWith('/auth'),
+                { timeout: 30_000 },
+                      );
+      } catch {
+              // 2FA element never appeared — either the session already skipped 2FA or
+          // 2FA is not configured for this user.  Continue to step 3.
+          if (page.url().includes(TWO_FACTOR_PROMPT_PATH)) {
+                    // We are still on the 2FA prompt page but the button wasn't found —
+                // something unexpected happened; surface a clear error.
+                throw new Error(
+                            `[auth] Stuck on 2FA prompt (${page.url()}) but could not find ` +
+                            `"Skip for now" / "Skip" element. The page markup may have changed.`,
+                          );
+          }
+      }
 
-      await page.getByRole('link', { name: /skip for now/i }).click();
-
-      await page.waitForURL(
-        (url) => !url.pathname.startsWith('/auth'),
-        { timeout: 30_000 },
-      );
-    }
-
-    // ── Step 3: Confirm we are on the dashboard ───────────────────────────────
-    console.log(`[${user.role}] Logged in — now at: ${page.url()}`);
+      // ── Step 3: Confirm we are on the dashboard ────────────────────────────────
+      console.log(`[${user.role}] Logged in — now at: ${page.url()}`);
   }
 
   /**
-   * Saves the current browser context state (cookies, localStorage, sessionStorage)
-   * to a file. Used by auth.setup.ts to persist auth across test runs.
-   */
+     * Saves the current browser context state (cookies, localStorage, sessionStorage)
+     * to a file. Used by auth.setup.ts to persist auth across test runs.
+     */
   async saveStorageState(context: BrowserContext, role: string): Promise<string> {
-    const authDir = path.join(process.cwd(), 'playwright', '.auth');
-
-    if (!fs.existsSync(authDir)) {
-      fs.mkdirSync(authDir, { recursive: true });
-    }
-
-    const filePath = path.join(authDir, `${role}.json`);
-    await context.storageState({ path: filePath });
-    return filePath;
+        const authDir = path.join(process.cwd(), 'playwright', '.auth');
+        if (!fs.existsSync(authDir)) {
+                fs.mkdirSync(authDir, { recursive: true });
+        }
+        const filePath = path.join(authDir, `${role}.json`);
+        await context.storageState({ path: filePath });
+        return filePath;
   }
 
   /**
-   * Returns the path to a saved auth state file.
-   */
+     * Returns the path to a saved auth state file.
+     */
   static authStatePath(role: string): string {
-    return path.join(process.cwd(), 'playwright', '.auth', `${role}.json`);
+        return path.join(process.cwd(), 'playwright', '.auth', `${role}.json`);
   }
 
   /**
-   * Checks if an auth state file exists and is less than N hours old.
-   * Used to decide whether to re-run authentication setup.
-   */
+     * Checks if an auth state file exists and is less than N hours old.
+     * Used to decide whether to re-run authentication setup.
+     */
   static isAuthStateValid(role: string, maxAgeHours = 8): boolean {
-    const filePath = AuthHelper.authStatePath(role);
-    if (!fs.existsSync(filePath)) return false;
-    const stats    = fs.statSync(filePath);
-    const ageHours = (Date.now() - stats.mtimeMs) / (1000 * 60 * 60);
-    return ageHours < maxAgeHours;
+        const filePath = AuthHelper.authStatePath(role);
+        if (!fs.existsSync(filePath)) return false;
+        const stats = fs.statSync(filePath);
+        const ageHours = (Date.now() - stats.mtimeMs) / (1000 * 60 * 60);
+        return ageHours < maxAgeHours;
   }
 }
