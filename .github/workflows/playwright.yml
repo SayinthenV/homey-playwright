@@ -262,7 +262,7 @@ jobs:
           PACT_BROKER_BASE_URL: ${{ secrets.PACT_BROKER_BASE_URL }}
           PACT_BROKER_TOKEN: ${{ secrets.PACT_BROKER_TOKEN }}
       - name: Publish pacts to Pact Broker
-        if: ${{ success() && secrets.PACT_BROKER_BASE_URL != '' }}
+        if: ${{ success() && vars.PACT_BROKER_ENABLED == 'true' }}
         run: npm run pact:publish
         env:
           PACT_BROKER_BASE_URL: ${{ secrets.PACT_BROKER_BASE_URL }}
