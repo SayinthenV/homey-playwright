@@ -46,7 +46,7 @@ jobs:
         with:
           node-version: 20
   
-      - run: npm ci
+      - run: npm install
       - run: npx playwright install --with-deps chromium
       - name: Cache auth state
         id: cache-auth
@@ -78,7 +78,7 @@ jobs:
         with:
           node-version: 20
   
-      - run: npm ci
+      - run: npm install
       - uses: actions/download-artifact@v4
         with:
           name: auth-state-${{ env.ENV }}
@@ -105,7 +105,7 @@ jobs:
         with:
           node-version: 20
   
-      - run: npm ci
+      - run: npm install
       - run: npx playwright install --with-deps chromium
       - uses: actions/download-artifact@v4
         with:
@@ -147,7 +147,7 @@ jobs:
         with:
           node-version: 20
   
-      - run: npm ci
+      - run: npm install
       - run: npx playwright install --with-deps chromium
       - uses: actions/download-artifact@v4
         with:
@@ -183,7 +183,7 @@ jobs:
         with:
           node-version: 20
   
-      - run: npm ci
+      - run: npm install
       - run: npx playwright install --with-deps chromium
       - uses: actions/download-artifact@v4
         with:
@@ -220,7 +220,7 @@ jobs:
         with:
           node-version: 20
   
-      - run: npm ci
+      - run: npm install
       - run: npx playwright install --with-deps chromium
       - uses: actions/download-artifact@v4
         with:
@@ -250,7 +250,7 @@ jobs:
         with:
           node-version: 20
   
-      - run: npm ci
+      - run: npm install
       - uses: actions/download-artifact@v4
         with:
           name: auth-state-${{ env.ENV }}
@@ -290,7 +290,7 @@ jobs:
         with:
           node-version: 20
   
-      - run: npm ci
+      - run: npm install
       - run: npx playwright install --with-deps chromium
       - uses: actions/download-artifact@v4
         with:
@@ -322,7 +322,7 @@ jobs:
         with:
           node-version: 20
   
-      - run: npm ci
+      - run: npm install
       - uses: actions/download-artifact@v4
         with:
           name: auth-state-${{ env.ENV }}
